@@ -8,7 +8,7 @@
  *     so schools with limited or intermittent internet can run offline.
  */
 
-const APP_CACHE = 'siam-rhythm-app-v3';
+const APP_CACHE = 'siam-rhythm-app-v4';
 const MODEL_CACHE = 'siam-rhythm-mediapipe-v1';
 
 const APP_SHELL = [
@@ -71,21 +71,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin app shell: Stale-While-Revalidate for fast offline startup
+  // Same-origin app shell: Network-First (always fresh when online, offline cache fallback)
   if (url.origin === self.location.origin) {
     event.respondWith(
       caches.open(APP_CACHE).then(async (cache) => {
-        const cached = await cache.match(request);
-        const networkPromise = fetch(request)
-          .then((res) => {
-            if (res && res.ok) {
-              cache.put(request, res.clone());
-            }
-            return res;
-          })
-          .catch(() => cached);
-
-        return cached || networkPromise;
+        try {
+          const networkRes = await fetch(request);
+          if (networkRes && networkRes.ok) {
+            cache.put(request, networkRes.clone());
+          }
+          return networkRes;
+        } catch {
+          return cache.match(request);
+        }
       })
     );
   }
