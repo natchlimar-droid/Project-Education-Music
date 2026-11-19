@@ -143,7 +143,7 @@ export class RhythmGameEngine {
 
   beginSongPlayback() {
     this.state = 'playing';
-    this.songStartTime = this.audio.getCurrentTime();
+    this.songStartTime = this.audio.getOutputClockTime();
     this.nextMetronomeBeat = 0;
     this.vision.resetGestureState();
     this.callbacks.onStateChange?.('playing');
@@ -152,13 +152,13 @@ export class RhythmGameEngine {
   pause() {
     if (this.state !== 'playing') return;
     this.state = 'paused';
-    this.pauseStartedAudioTime = this.audio.getCurrentTime();
+    this.pauseStartedAudioTime = this.audio.getOutputClockTime();
     this.callbacks.onStateChange?.('paused');
   }
 
   resume() {
     if (this.state !== 'paused') return;
-    const pausedDuration = this.audio.getCurrentTime() - this.pauseStartedAudioTime;
+    const pausedDuration = this.audio.getOutputClockTime() - this.pauseStartedAudioTime;
     this.songStartTime += pausedDuration;
     this.state = 'playing';
     this.lastFramePerfMs = performance.now();
@@ -178,7 +178,7 @@ export class RhythmGameEngine {
    */
   handleKeyInput(keyLower) {
     if (this.state !== 'playing') return;
-    const nowAudio = this.audio.getCurrentTime();
+    const nowAudio = this.audio.getOutputClockTime();
 
     if (this.beatmap.instrument === 'ranat') {
       const laneIdx = this.lanes.findIndex((k) => k.keyHint.toLowerCase() === keyLower);
@@ -258,7 +258,7 @@ export class RhythmGameEngine {
   // Audio-Synced Gameplay Update
   // ==========================================================================
   _updateGameplay(nowMs, dtSec) {
-    const audioNow = this.audio.getCurrentTime();
+    const audioNow = this.audio.getOutputClockTime();
     const songTime = audioNow - this.songStartTime;
 
     // 1. Schedule Web Audio metronome clicks (120ms lookahead)
@@ -566,7 +566,7 @@ export class RhythmGameEngine {
 
     const songTime =
       this.state === 'playing'
-        ? this.audio.getCurrentTime() - this.songStartTime
+        ? this.audio.getOutputClockTime() - this.songStartTime
         : this.state === 'paused'
           ? this.pauseStartedAudioTime - this.songStartTime
           : -1;

@@ -5,16 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#110f15" />
   <title>Siam Rhythm — เกมดนตรีไทยจับจังหวะด้วยมือ</title>
-  <meta name="description" content="Interactive Thai Traditional Music Rhythm Game powered by 100% client-side webcam hand tracking and Web Audio API." />
+  <meta name="description" content="Interactive Thai Traditional Music Rhythm Game powered by client-side webcam hand tracking and Web Audio API." />
 
-  <!-- Privacy-First Inline SVG Favicon & Classroom Offline PWA Manifest -->
+  <!-- Inline SVG Favicon & Installable PWA Manifest (with 192/512 PNG icons) -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='8' fill='%23110f15'/%3E%3Cpath d='M18 4L23 13L32 18L23 23L18 32L13 23L4 18L13 13Z' stroke='%23dfb258' stroke-width='2.2' fill='%23dfb258' fill-opacity='0.22'/%3E%3Ccircle cx='18' cy='18' r='3.5' fill='%23f5d487'/%3E%3C/svg%3E" />
   <link rel="manifest" href="./manifest.json" />
 
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
-  <!-- Subtle cultural geometric background glow -->
   <div class="bg-ambient" aria-hidden="true"></div>
 
   <!-- Top Navigation Bar -->
@@ -33,10 +32,10 @@
     </div>
 
     <div class="header-controls">
-      <button id="btn-sound-test" class="btn-ghost" type="button" data-i18n="testSoundBtn" aria-label="ทดสอบเสียงเครื่องดนตรี">
+      <button id="btn-sound-test" class="btn-ghost" type="button" data-i18n="testSoundBtn" data-i18n-aria="testSoundAria" aria-label="ทดสอบเสียงเครื่องดนตรี">
         🔊 ทดสอบเสียง
       </button>
-      <div class="lang-toggle" role="group" aria-label="Language switcher">
+      <div class="lang-toggle" role="group" data-i18n-aria="langGroupAria" aria-label="สลับภาษา">
         <button id="lang-th" class="lang-btn active" type="button" data-lang="th" aria-pressed="true">ไทย</button>
         <button id="lang-en" class="lang-btn" type="button" data-lang="en" aria-pressed="false">EN</button>
       </div>
@@ -44,6 +43,14 @@
   </header>
 
   <main class="app-main">
+    <!-- Accessible fallback when JavaScript is disabled -->
+    <noscript>
+      <div class="noscript-banner" role="alert">
+        ⚠️ <strong>ต้องเปิดใช้งาน JavaScript:</strong> แอปพลิเคชันสยามจังหวะใช้ Web Audio API และ MediaPipe Hand Tracking ซึ่งต้องเปิด JavaScript ในเบราว์เซอร์<br />
+        <strong>JavaScript Required:</strong> Please enable JavaScript to play Siam Rhythm.
+      </div>
+    </noscript>
+
     <!-- =========================================================
          1. LANDING & SETUP SCREEN
     ========================================================== -->
@@ -59,7 +66,7 @@
           </p>
         </div>
 
-        <!-- Step 1: Instrument Selector (ARIA Radiogroup with Roving Tabindex) -->
+        <!-- Step 1: Instrument Selector (Valid HTML5 phrasing content inside <button>) -->
         <div class="panel">
           <h2 id="heading-instrument" class="panel-title">
             <span class="step-badge" aria-hidden="true">1</span>
@@ -67,43 +74,78 @@
           </h2>
           <div id="instrument-group" class="card-grid two-col" role="radiogroup" aria-labelledby="heading-instrument">
             <button type="button" class="select-card active" data-instrument="ranat" role="radio" aria-checked="true" tabindex="0">
-              <div class="card-icon" aria-hidden="true">🎹</div>
-              <div class="card-body">
-                <h3 data-i18n="ranatTitle">ระนาดเอก (Ranat Ek)</h3>
-                <p data-i18n="ranatDesc">ฝึกทำนองและการประสานมือ ตีลูกระนาดเสมือนตามโน้ตที่ตกลงมา</p>
+              <span class="card-icon" aria-hidden="true">
+                <!-- Inline SVG: Ranat Ek -->
+                <svg viewBox="0 0 40 40" width="36" height="36" fill="none">
+                  <path d="M5 24C10 31 30 31 35 24" stroke="#dfb258" stroke-width="2.5" stroke-linecap="round"/>
+                  <rect x="7" y="12" width="4" height="12" rx="2" fill="#f5d487"/>
+                  <rect x="13" y="11" width="4" height="14" rx="2" fill="#4cc2a8"/>
+                  <rect x="19" y="10" width="4" height="15" rx="2" fill="#6cb4ee"/>
+                  <rect x="25" y="11" width="4" height="14" rx="2" fill="#e87458"/>
+                  <rect x="31" y="12" width="4" height="12" rx="2" fill="#c48df2"/>
+                </svg>
+              </span>
+              <span class="card-body">
+                <span class="card-heading" data-i18n="ranatTitle">ระนาดเอก (Ranat Ek)</span>
+                <span class="card-desc" data-i18n="ranatDesc">ฝึกทำนองและการประสานมือ ตีลูกระนาดเสมือนตามโน้ตที่ตกลงมา</span>
                 <span class="tag" data-i18n="ranatTag">ทำนอง &amp; ประสานสัมพันธ์</span>
-              </div>
+              </span>
             </button>
 
             <button type="button" class="select-card" data-instrument="ching" role="radio" aria-checked="false" tabindex="-1">
-              <div class="card-icon" aria-hidden="true">🔔</div>
-              <div class="card-body">
-                <h3 data-i18n="chingTitle">ฉิ่ง (Ching)</h3>
-                <p data-i18n="chingDesc">ฝึกจังหวะและสมาธิ ประกบฝ่ามือแล้วเปิดออก (ฉิ่ง) หรือประกบค้างสั้นๆ (ฉับ)</p>
+              <span class="card-icon" aria-hidden="true">
+                <!-- Inline SVG: Ching Cymbals -->
+                <svg viewBox="0 0 40 40" width="36" height="36" fill="none">
+                  <circle cx="15" cy="21" r="9" stroke="#f5d487" stroke-width="2.6" fill="rgba(223,178,88,0.18)"/>
+                  <circle cx="26" cy="18" r="9" stroke="#e87458" stroke-width="2.6" fill="rgba(232,116,88,0.2)"/>
+                  <circle cx="15" cy="21" r="2.2" fill="#f5d487"/>
+                  <circle cx="26" cy="18" r="2.2" fill="#fff3ef"/>
+                </svg>
+              </span>
+              <span class="card-body">
+                <span class="card-heading" data-i18n="chingTitle">ฉิ่ง (Ching)</span>
+                <span class="card-desc" data-i18n="chingDesc">ฝึกจังหวะและสมาธิ ประกบฝ่ามือแล้วเปิดออก (ฉิ่ง) หรือประกบค้างสั้นๆ (ฉับ)</span>
                 <span class="tag" data-i18n="chingTag">จังหวะ &amp; ความแม่นยำ</span>
-              </div>
+              </span>
             </button>
 
             <button type="button" class="select-card" data-instrument="taphon" role="radio" aria-checked="false" tabindex="-1">
-              <div class="card-icon" aria-hidden="true">🥁</div>
-              <div class="card-body">
-                <h3 data-i18n="taphonTitle">ตะโพน / กลองไทย (Taphon)</h3>
-                <p data-i18n="taphonDesc">ตีด้วยความเร็วข้อมือ แยกโซนหน้ากลอง (ทุ่ม/ป๊ะ) และขอบกลอง (ติง/จ๊ะ)</p>
+              <span class="card-icon" aria-hidden="true">
+                <!-- Inline SVG: Taphon Drum -->
+                <svg viewBox="0 0 40 40" width="36" height="36" fill="none">
+                  <rect x="7" y="11" width="26" height="18" rx="8" fill="#523424" stroke="#dfb258" stroke-width="2.2"/>
+                  <ellipse cx="11" cy="20" rx="4" ry="8" fill="#f5d487" fill-opacity="0.3" stroke="#f5d487" stroke-width="1.8"/>
+                  <ellipse cx="29" cy="20" rx="4" ry="8" fill="#e87458" fill-opacity="0.3" stroke="#e87458" stroke-width="1.8"/>
+                  <path d="M15 13L25 27M25 13L15 27" stroke="#dfb258" stroke-width="1.4" stroke-opacity="0.6"/>
+                </svg>
+              </span>
+              <span class="card-body">
+                <span class="card-heading" data-i18n="taphonTitle">ตะโพน / กลองไทย (Taphon)</span>
+                <span class="card-desc" data-i18n="taphonDesc">ตีด้วยความเร็วข้อมือ แยกโซนหน้ากลอง (ทุ่ม/ป๊ะ) และขอบกลอง (ติง/จ๊ะ)</span>
                 <span class="tag" data-i18n="taphonTag">จังหวะหน้าทับ &amp; แรงตี</span>
-              </div>
+              </span>
             </button>
 
             <button type="button" class="select-card" data-instrument="khlui" role="radio" aria-checked="false" tabindex="-1">
-              <div class="card-icon" aria-hidden="true">🪈</div>
-              <div class="card-body">
-                <h3 data-i18n="khluiTitle">ขลุ่ยเพียงออ (Khlui)</h3>
-                <p data-i18n="khluiDesc">กำหนดระดับเสียงไทย 5 เสียง (ด ร ม ซ ล) ด้วยจำนวนนิ้วที่ชู 1–5 นิ้ว</p>
+              <span class="card-icon" aria-hidden="true">
+                <!-- Inline SVG: Khlui Bamboo Flute (replaces Unicode 15 emoji) -->
+                <svg viewBox="0 0 40 40" width="36" height="36" fill="none">
+                  <rect x="5" y="17" width="30" height="7" rx="3.5" transform="rotate(-28 20 20)" fill="#dfb258" fill-opacity="0.25" stroke="#f5d487" stroke-width="2"/>
+                  <circle cx="14" cy="23" r="1.6" fill="#4cc2a8"/>
+                  <circle cx="19" cy="20.5" r="1.6" fill="#4cc2a8"/>
+                  <circle cx="24" cy="18" r="1.6" fill="#4cc2a8"/>
+                  <circle cx="29" cy="15.5" r="1.6" fill="#4cc2a8"/>
+                </svg>
+              </span>
+              <span class="card-body">
+                <span class="card-heading" data-i18n="khluiTitle">ขลุ่ยเพียงออ (Khlui)</span>
+                <span class="card-desc" data-i18n="khluiDesc">กำหนดระดับเสียงไทย 5 เสียง (ด ร ม ซ ล) ด้วยจำนวนนิ้วที่ชู 1–5 นิ้ว</span>
                 <span class="tag" data-i18n="khluiTag">ทำนอง &amp; ทักษะนิ้วมือ</span>
-              </div>
+              </span>
             </button>
           </div>
 
-          <!-- UDL Tracking Point Option (Visible for Ranat Ek, proper ARIA radiogroup) -->
+          <!-- UDL Tracking Point Option (Visible for Ranat Ek) -->
           <div id="ranat-options" class="sub-option-bar">
             <span id="heading-landmark" class="sub-option-label" data-i18n="trackingPointLabel">จุดตรวจจับมือ (ระนาดเอก):</span>
             <div id="landmark-group" class="segmented-control" role="radiogroup" aria-labelledby="heading-landmark">
@@ -113,32 +155,40 @@
           </div>
         </div>
 
-        <!-- Step 2: Difficulty Selector (ARIA Radiogroup with Roving Tabindex) -->
+        <!-- Step 2: Difficulty Selector -->
         <div class="panel">
           <h2 id="heading-difficulty" class="panel-title">
             <span class="step-badge" aria-hidden="true">2</span>
             <span data-i18n="selectDifficulty">เลือกระดับความยาก</span>
           </h2>
           <div class="card-grid three-col" id="difficulty-grid" role="radiogroup" aria-labelledby="heading-difficulty">
-            <!-- Dynamically populated by main.js with role="radio", aria-checked, roving tabindex -->
+            <!-- Dynamically populated by main.js using valid phrasing content inside <button> -->
           </div>
         </div>
 
-        <!-- Step 3: Audio/Video Latency Calibration Bar -->
+        <!-- Step 3: Audio/Video Latency Calibration Bar (Separate Camera vs Keyboard Offsets) -->
         <div class="panel latency-panel">
           <div class="latency-row">
             <div class="latency-info">
               <h2 class="panel-title latency-title">
                 <span class="step-badge" aria-hidden="true">3</span>
-                <span data-i18n="latencyTitle">ปรับชดเชยดีเลย์เสียง/ภาพ (Latency Offset)</span>
+                <span data-i18n="latencyTitle">ปรับชดเชยดีเลย์เสียง/ภาพ (แยกโหมดกล้องและคีย์บอร์ด)</span>
               </h2>
               <p class="latency-desc" data-i18n="latencyDesc">
-                หากใช้ลำโพงบลูทูธหรือกล้องที่มีความหน่วง สามารถวัดอัตโนมัติหรือปรับละเอียดได้ ±200ms
+                โหมดกล้องมีความหน่วงจากการประมวลผลภาพต่างจากคีย์บอร์ด สามารถวัดและเก็บค่าชดเชยแยกกันได้ (±200ms)
               </p>
             </div>
             <button id="btn-open-latency" class="btn-secondary" type="button" data-i18n="openLatencyBtn">
               ⏱️ วัดดีเลย์อัตโนมัติ (8 จังหวะ)
             </button>
+          </div>
+
+          <div class="sub-option-bar latency-mode-bar">
+            <span id="heading-latency-mode" class="sub-option-label" data-i18n="latencyModeLabel">โหมดที่กำลังปรับค่าชดเชย:</span>
+            <div id="latency-mode-group" class="segmented-control" role="radiogroup" aria-labelledby="heading-latency-mode">
+              <button type="button" class="seg-btn active" data-latency-mode="camera" role="radio" aria-checked="true" tabindex="0" data-i18n="latencyModeCamera">📷 โหมดกล้อง</button>
+              <button type="button" class="seg-btn" data-latency-mode="keyboard" role="radio" aria-checked="false" tabindex="-1" data-i18n="latencyModeKeyboard">⌨️ โหมดคีย์บอร์ด</button>
+            </div>
           </div>
 
           <div class="latency-slider-wrap">
@@ -148,19 +198,19 @@
             </label>
             <div class="slider-controls">
               <span class="slider-bound">-200ms</span>
-              <input id="latency-slider" type="range" min="-200" max="200" step="5" value="0" aria-label="Audio video latency offset in milliseconds" />
+              <input id="latency-slider" type="range" min="-200" max="200" step="5" value="0" aria-valuetext="0 มิลลิวินาที (ไม่ชดเชย)" />
               <span class="slider-bound">+200ms</span>
               <button id="btn-reset-latency" class="btn-ghost btn-sm" type="button" data-i18n="resetLatencyBtn">รีเซ็ต</button>
             </div>
           </div>
         </div>
 
-        <!-- Privacy Notice + Primary CTA -->
+        <!-- Honest Privacy Notice + Primary CTA -->
         <div class="cta-area">
           <div class="privacy-banner" role="note">
             <span class="privacy-icon" aria-hidden="true">🔒</span>
             <p data-i18n="privacyNotice">
-              <strong>ความเป็นส่วนตัว 100%:</strong> ประมวลผลภาพและเสียงภายในเครื่องทั้งหมด ไม่มีฟอนต์ภายนอก ไม่มีการบันทึกหรืออัปโหลดวิดีโอ
+              <strong>ความเป็นส่วนตัวของกล้อง:</strong> ภาพจากเว็บแคมประมวลผลในเครื่อง 100% ไม่มีการบันทึกหรือส่งวิดีโอออกนอกเครื่อง (โหลดโมเดล AI จาก CDN ครั้งแรกแล้วแคชไว้เล่นออฟไลน์ในเบราว์เซอร์)
             </p>
           </div>
 
@@ -182,10 +232,9 @@
          2. GAMEPLAY & HAND READINESS SCREEN
     ========================================================== -->
     <section id="screen-game" class="screen" aria-label="Gameplay area">
-      <!-- Top Gameplay HUD -->
       <div class="hud-bar">
         <div class="hud-left">
-          <button id="btn-exit-game" class="btn-icon-only" type="button" title="Back to Menu" aria-label="กลับหน้าหลัก">
+          <button id="btn-exit-game" class="btn-icon-only" type="button" data-i18n-aria="backMenuBtn" aria-label="กลับหน้าหลัก">
             ←
           </button>
           <div class="hud-song-meta">
@@ -218,11 +267,12 @@
         </div>
       </div>
 
-      <!-- Song Progress Bar (Accessible ARIA progressbar) -->
+      <!-- Accessible ARIA progressbar -->
       <div
         id="hud-progress-track"
         class="progress-track"
         role="progressbar"
+        data-i18n-aria="progressLabel"
         aria-label="ความคืบหน้าของเพลง"
         aria-valuemin="0"
         aria-valuemax="100"
@@ -231,14 +281,12 @@
         <div id="hud-progress-fill" class="progress-fill"></div>
       </div>
 
-      <!-- Main Responsive Stage -->
       <div class="stage-wrapper">
-        <!-- Hidden video source at 640x480 for MediaPipe -->
         <video id="webcam-video" playsinline muted autoplay class="hidden-video" aria-hidden="true"></video>
-        <!-- Main mirrored gameplay canvas with screen reader label & fallback -->
         <canvas
           id="game-canvas"
           role="img"
+          data-i18n-aria="canvasLabel"
           aria-label="กระดานเกมดนตรีไทยจับจังหวะ แสดงโน้ตที่ตกลงมาและตำแหน่งมือแบบเรียลไทม์"
         >
           เบราว์เซอร์ของคุณไม่รองรับ HTML5 Canvas สำหรับแสดงผลเกมดนตรีไทยจับจังหวะ
@@ -257,7 +305,7 @@
         <div id="overlay-calibration" class="stage-overlay hidden" role="status" aria-live="polite">
           <div class="overlay-card calibration-card">
             <p class="eyebrow" data-i18n="calibEyebrow">ตรวจสอบความพร้อมของมือ</p>
-            <h3 id="calib-title" data-i18n="calibTitle">ยกมือทั้งสองข้างให้อยู่ในกรอบกล้อง</h3>
+            <h3 id="calib-title" data-i18n="calibTitleTwo">ยกมือทั้งสองข้างให้อยู่ในกรอบกล้อง</h3>
             <p id="calib-hint" class="calib-hint" data-i18n="calibHint">ค้างไว้ 3 วินาทีเพื่อเริ่มเพลงอัตโนมัติ</p>
 
             <div class="hand-status-row">
@@ -279,14 +327,13 @@
               <span id="calib-seconds" class="calib-seconds">3</span>
             </div>
 
-            <!-- Accessible >= 44x44px touch target -->
             <button id="btn-skip-calib" class="btn-secondary btn-touch" type="button" data-i18n="skipCalibBtn">
               ข้ามการตรวจสอบและเริ่มทันที
             </button>
           </div>
         </div>
 
-        <!-- Pause Overlay -->
+        <!-- Pause Modal (Focus Trapped) -->
         <div id="overlay-pause" class="stage-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="paused-heading">
           <div class="overlay-card">
             <h3 id="paused-heading" data-i18n="pausedTitle">หยุดพักชั่วคราว</h3>
@@ -298,7 +345,6 @@
           </div>
         </div>
 
-        <!-- Compact Gesture / Keyboard Hint Pill -->
         <div id="gesture-hint-bar" class="gesture-hint-bar" aria-live="polite"></div>
       </div>
     </section>
@@ -356,15 +402,20 @@
   </main>
 
   <!-- =========================================================
-       4. AUDIO / VIDEO LATENCY CALIBRATION MODAL (8 Metronome Beats)
+       4. AUDIO / CAMERA LATENCY CALIBRATION MODAL (Focus Trapped)
   ========================================================== -->
   <div id="modal-latency" class="stage-overlay modal-fixed hidden" role="dialog" aria-modal="true" aria-labelledby="latency-modal-title">
     <div class="overlay-card latency-modal-card">
       <p class="eyebrow" data-i18n="latencyModalEyebrow">AUDIO / INPUT SYNC</p>
       <h3 id="latency-modal-title" data-i18n="latencyModalTitle">วัดดีเลย์เสียงและจังหวะ (8 ครั้ง)</h3>
       <p id="latency-modal-desc" data-i18n="latencyModalDesc">
-        ฟังเสียงเมโทรนอม แล้วแตะปุ่มด้านล่างหรือกด Spacebar ให้ตรงจังหวะ ระบบจะคำนวณค่ามัธยฐานเพื่อตัดค่าผิดปกติ
+        เลือกวิธีวัด (แตะ/Spacebar หรือประกบมือหน้ากล้องจริง) แล้วทำตามเสียงเมโทรนอม 8 ครั้ง
       </p>
+
+      <div id="modal-calib-mode-group" class="segmented-control" role="radiogroup" data-i18n-aria="latencyModeLabel" aria-label="โหมดที่กำลังปรับค่าชดเชย">
+        <button type="button" class="seg-btn active" data-calib-input="keyboard" role="radio" aria-checked="true" tabindex="0" data-i18n="calibByKey">⌨️ แตะ / Spacebar</button>
+        <button type="button" class="seg-btn" data-calib-input="camera" role="radio" aria-checked="false" tabindex="-1" data-i18n="calibByCam">📷 ประกบมือหน้ากล้อง</button>
+      </div>
 
       <div id="latency-beat-dots" class="beat-dots" aria-hidden="true">
         <span class="beat-dot"></span><span class="beat-dot"></span>

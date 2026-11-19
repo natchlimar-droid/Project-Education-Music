@@ -1,22 +1,21 @@
 /**
  * ============================================================================
- * js/main.js — Application Controller, WCAG/ARIA Radio Groups, Latency Sync & PWA
+ * js/main.js — Application Controller, WCAG Focus Trap, Dual Latency Sync & PWA
  * ============================================================================
- * Coordinates:
- *  - Bilingual TH/EN i18n
- *  - Full ARIA radiogroup compliance (aria-checked, roving tabindex, arrow keys)
- *  - Audio/Input Latency Calibration (8-beat median offset ±200ms in localStorage)
- *  - Autoplay-safe Web Audio unlock across all entry points
- *  - 4 Thai instruments (Ranat Ek, Ching, Taphon, Khlui) & Classroom PWA SW
+ * - Valid HTML5 phrasing content inside <button> radio cards
+ * - Full TH/EN i18n for text, aria-label (data-i18n-aria), and slider aria-valuetext
+ * - Focus trap + Escape close + focus restoration for all aria-modal dialogs
+ * - Separate latency offsets for Camera (hand-clap) vs Keyboard/Touch (tap/Space)
+ *   measured against `audioEngine.getOutputClockTime()` with median outlier filtering
  */
 
 import { ThaiAudioEngine } from './audio.js';
 import { HandVisionTracker } from './vision.js';
 import { RhythmGameEngine } from './gameEngine.js';
-import { DIFFICULTY_CONFIG, getBeatmap } from './beatmaps.js';
+import { DIFFICULTY_CONFIG, getBeatmap, thai7TetFreq } from './beatmaps.js';
 
 const STORAGE_KEY = 'siam_rhythm_personal_bests_v1';
-const LATENCY_STORAGE_KEY = 'siam_rhythm_latency_offset_v1';
+const LATENCY_STORAGE_KEY = 'siam_rhythm_latency_offsets_v2';
 
 // ============================================================================
 // Bilingual Dictionary (Thai / English)
@@ -26,6 +25,8 @@ const I18N = {
     appTitle: 'สยามจังหวะ',
     appSubtitle: 'เกมดนตรีไทยจับจังหวะด้วยมือ',
     testSoundBtn: '🔊 ทดสอบเสียง',
+    testSoundAria: 'ทดสอบเสียงเครื่องดนตรี',
+    langGroupAria: 'สลับภาษา',
     heroEyebrow: 'UNIVERSAL DESIGN FOR LEARNING • เล่นได้ทุกวัย',
     heroTitle: 'สัมผัสจังหวะดนตรีไทยด้วยสองมือของคุณ',
     heroDesc: 'ฝึกจังหวะและการประสานสัมพันธ์ของมือผ่านกล้องเว็บแคมแบบเรียลไทม์ ไม่ต้องติดตั้งโปรแกรม',
@@ -46,21 +47,27 @@ const I18N = {
     landmarkFinger: 'ปลายนิ้วชี้ (แม่นยำ)',
     landmarkPalm: 'กลางฝ่ามือ (สบายมือ)',
     selectDifficulty: 'เลือกระดับความยาก',
-    latencyTitle: 'ปรับชดเชยดีเลย์เสียง/ภาพ (Latency Offset)',
-    latencyDesc: 'หากใช้ลำโพงบลูทูธหรือกล้องที่มีความหน่วง สามารถวัดอัตโนมัติหรือปรับละเอียดได้ ±200ms',
+    latencyTitle: 'ปรับชดเชยดีเลย์เสียง/ภาพ (แยกโหมดกล้องและคีย์บอร์ด)',
+    latencyDesc: 'โหมดกล้องมีความหน่วงจากการประมวลผลภาพต่างจากคีย์บอร์ด สามารถวัดและเก็บค่าชดเชยแยกกันได้ (±200ms)',
     openLatencyBtn: '⏱️ วัดดีเลย์อัตโนมัติ (8 จังหวะ)',
+    latencyModeLabel: 'โหมดที่กำลังปรับค่าชดเชย:',
+    latencyModeCamera: '📷 โหมดกล้อง',
+    latencyModeKeyboard: '⌨️ โหมดคีย์บอร์ด',
     latencyOffsetLabel: 'ค่าชดเชยปัจจุบัน:',
     resetLatencyBtn: 'รีเซ็ต',
     latencyModalEyebrow: 'AUDIO / INPUT SYNC',
     latencyModalTitle: 'วัดดีเลย์เสียงและจังหวะ (8 ครั้ง)',
-    latencyModalDesc: 'ฟังเสียงเมโทรนอม แล้วแตะปุ่มด้านล่างหรือกด Spacebar ให้ตรงจังหวะ ระบบจะคำนวณค่ามัธยฐานเพื่อตัดค่าผิดปกติ',
+    latencyModalDesc: 'เลือกวิธีวัด (แตะ/Spacebar หรือประกบมือหน้ากล้องจริง) แล้วทำตามเสียงเมโทรนอม 8 ครั้ง',
+    calibByKey: '⌨️ แตะ / Spacebar',
+    calibByCam: '📷 ประกบมือหน้ากล้อง',
     latencyTapIdle: 'กด "เริ่มวัดจังหวะ"',
     latencyTapReady: 'เตรียมฟังจังหวะนำ (2 ครั้ง)...',
-    latencyTapNow: 'แตะตรงนี้ หรือกด Spacebar ตามจังหวะ!',
+    latencyTapNowKey: 'แตะตรงนี้ หรือกด Spacebar ตามจังหวะ!',
+    latencyTapNowCam: 'ประกบมือทั้งสองข้างหน้ากล้องตามจังหวะ!',
     latencyStartBtn: 'เริ่มวัดจังหวะ',
     latencyApplyBtn: 'บันทึกค่าชดเชย',
     closeBtn: 'ปิด',
-    privacyNotice: '<strong>ความเป็นส่วนตัว 100%:</strong> ประมวลผลภาพและเสียงภายในเครื่องทั้งหมด ไม่มีฟอนต์ภายนอก ไม่มีการบันทึกหรืออัปโหลดวิดีโอ',
+    privacyNotice: '<strong>ความเป็นส่วนตัวของกล้อง:</strong> ภาพจากเว็บแคมประมวลผลในเครื่อง 100% ไม่มีการบันทึกหรือส่งวิดีโอออกนอกเครื่อง (โหลดโมเดล AI จาก CDN ครั้งแรกแล้วแคชไว้เล่นออฟไลน์ในเบราว์เซอร์)',
     startCameraBtn: 'เริ่มเล่นและเปิดกล้อง',
     keyboardModeBtn: '⌨️ เล่นด้วยคีย์บอร์ด',
     hudScore: 'คะแนน',
@@ -116,6 +123,8 @@ const I18N = {
     appTitle: 'Siam Rhythm',
     appSubtitle: 'Thai Traditional Music Rhythm',
     testSoundBtn: '🔊 Test Sound',
+    testSoundAria: 'Test instrument sound',
+    langGroupAria: 'Language switcher',
     heroEyebrow: 'UNIVERSAL DESIGN FOR LEARNING • ALL AGES',
     heroTitle: 'Play Thai Traditional Music With Your Hands',
     heroDesc: 'Practice rhythm and hand coordination via real-time webcam tracking. Zero installation, accessible for every generation.',
@@ -136,21 +145,27 @@ const I18N = {
     landmarkFinger: 'Index Fingertip (Precise)',
     landmarkPalm: 'Palm Center (Relaxed)',
     selectDifficulty: 'Select Difficulty',
-    latencyTitle: 'Audio / Visual Latency Calibration',
-    latencyDesc: 'Compensate for Bluetooth audio or webcam delay automatically or fine-tune ±200ms.',
+    latencyTitle: 'Audio / Visual Latency Calibration (Camera vs Keyboard)',
+    latencyDesc: 'Camera processing adds delay compared to keyboard input. Measure and store separate offsets (±200ms).',
     openLatencyBtn: '⏱️ Auto-Measure Delay (8 Beats)',
+    latencyModeLabel: 'Offset Profile:',
+    latencyModeCamera: '📷 Camera Mode',
+    latencyModeKeyboard: '⌨️ Keyboard Mode',
     latencyOffsetLabel: 'Current Offset:',
     resetLatencyBtn: 'Reset',
     latencyModalEyebrow: 'AUDIO / INPUT SYNC',
     latencyModalTitle: 'Measure Rhythm Latency (8 Beats)',
-    latencyModalDesc: 'Listen to the metronome and tap the button below or press Spacebar on each beat. Outliers are filtered using the median.',
+    latencyModalDesc: 'Choose tap/Spacebar or real webcam hand-claps, then match the 8 metronome beats.',
+    calibByKey: '⌨️ Tap / Spacebar',
+    calibByCam: '📷 Webcam Hand-Clap',
     latencyTapIdle: 'Click "Start Measurement"',
     latencyTapReady: 'Listen to 2 lead-in beats...',
-    latencyTapNow: 'Tap Here or Press Spacebar On The Beat!',
+    latencyTapNowKey: 'Tap Here or Press Spacebar On The Beat!',
+    latencyTapNowCam: 'Clap Both Palms In Front of Camera On The Beat!',
     latencyStartBtn: 'Start Measurement',
     latencyApplyBtn: 'Save Offset',
     closeBtn: 'Close',
-    privacyNotice: '<strong>100% Privacy-First:</strong> All processing runs locally on your device. No external fonts, no video recorded or uploaded.',
+    privacyNotice: '<strong>Camera Privacy:</strong> Webcam video is processed 100% locally and never recorded or uploaded. The AI model is fetched once from CDN and cached offline in your browser.',
     startCameraBtn: 'Start & Enable Camera',
     keyboardModeBtn: '⌨️ Play with Keyboard',
     hudScore: 'Score',
@@ -205,35 +220,46 @@ const I18N = {
 };
 
 // ============================================================================
-// Application State & Storage Helpers
+// Dual Latency Storage (Separate Camera vs Keyboard Offsets)
 // ============================================================================
-function loadLatencyOffset() {
+function clampOffset(ms) {
+  const num = Number(ms);
+  return Number.isFinite(num) ? Math.max(-200, Math.min(200, Math.round(num))) : 0;
+}
+
+function loadLatencyOffsets() {
   try {
-    const raw = localStorage.getItem(LATENCY_STORAGE_KEY);
-    const num = Number(raw);
-    return Number.isFinite(num) ? Math.max(-200, Math.min(200, Math.round(num))) : 0;
+    const raw = JSON.parse(localStorage.getItem(LATENCY_STORAGE_KEY) || '{}');
+    return {
+      camera: clampOffset(raw.camera ?? 0),
+      keyboard: clampOffset(raw.keyboard ?? 0),
+    };
   } catch {
-    return 0;
+    return { camera: 0, keyboard: 0 };
   }
 }
 
-function saveLatencyOffset(ms) {
-  const clamped = Math.max(-200, Math.min(200, Math.round(ms)));
+function saveLatencyOffsets(offsets) {
+  const clean = {
+    camera: clampOffset(offsets.camera),
+    keyboard: clampOffset(offsets.keyboard),
+  };
   try {
-    localStorage.setItem(LATENCY_STORAGE_KEY, String(clamped));
+    localStorage.setItem(LATENCY_STORAGE_KEY, JSON.stringify(clean));
   } catch {
-    // Ignore storage quota / privacy mode errors
+    // Ignore storage quota / private mode errors
   }
-  return clamped;
+  return clean;
 }
 
 const appState = {
   lang: 'th',
-  instrument: 'ranat', // 'ranat' | 'ching' | 'taphon' | 'khlui'
+  instrument: 'ranat',
   level: 1,
   landmarkIdx: 8,
   useCamera: true,
-  latencyOffsetMs: loadLatencyOffset(),
+  latencyProfile: 'camera', // Active profile shown in Setup slider ('camera' | 'keyboard')
+  latencyOffsets: loadLatencyOffsets(),
 };
 
 const audioEngine = new ThaiAudioEngine();
@@ -254,12 +280,16 @@ const el = {
   landmarkBtns: document.querySelectorAll('[data-landmark]'),
   difficultyGrid: document.getElementById('difficulty-grid'),
 
+  latencyModeGroup: document.getElementById('latency-mode-group'),
+  latencyModeBtns: document.querySelectorAll('[data-latency-mode]'),
   latencySlider: document.getElementById('latency-slider'),
   latencyValue: document.getElementById('latency-value'),
   btnResetLatency: document.getElementById('btn-reset-latency'),
   btnOpenLatency: document.getElementById('btn-open-latency'),
 
   modalLatency: document.getElementById('modal-latency'),
+  modalCalibModeGroup: document.getElementById('modal-calib-mode-group'),
+  modalCalibModeBtns: document.querySelectorAll('[data-calib-input]'),
   latencyBeatDots: document.querySelectorAll('#latency-beat-dots .beat-dot'),
   btnLatencyTap: document.getElementById('btn-latency-tap'),
   latencyTapLabel: document.getElementById('latency-tap-label'),
@@ -319,6 +349,61 @@ const el = {
 };
 
 // ============================================================================
+// WCAG Focus Trap & Modal Return-Focus Manager
+// ============================================================================
+const modalFocusState = {
+  activeModal: null,
+  previousFocus: null,
+};
+
+function getFocusableElements(container) {
+  return Array.from(
+    container.querySelectorAll(
+      'button:not([disabled]):not(.hidden), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter((node) => node.offsetParent !== null);
+}
+
+function openModalDialog(modalEl, triggerEl = document.activeElement) {
+  modalFocusState.previousFocus = triggerEl;
+  modalFocusState.activeModal = modalEl;
+  modalEl.classList.remove('hidden');
+
+  const focusables = getFocusableElements(modalEl);
+  if (focusables.length > 0) {
+    focusables[0].focus();
+  }
+}
+
+function closeModalDialog(modalEl) {
+  modalEl.classList.add('hidden');
+  if (modalFocusState.activeModal === modalEl) {
+    modalFocusState.activeModal = null;
+    if (modalFocusState.previousFocus && typeof modalFocusState.previousFocus.focus === 'function') {
+      modalFocusState.previousFocus.focus();
+    }
+    modalFocusState.previousFocus = null;
+  }
+}
+
+// Trap Tab / Shift+Tab inside any open aria-modal dialog
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Tab' || !modalFocusState.activeModal) return;
+  const focusables = getFocusableElements(modalFocusState.activeModal);
+  if (focusables.length === 0) return;
+
+  const first = focusables[0];
+  const last = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+});
+
+// ============================================================================
 // WCAG / ARIA Radiogroup Helper (Roving Tabindex + Arrow Keys)
 // ============================================================================
 function syncRadioGroupUI(container, activeNode) {
@@ -340,15 +425,10 @@ function attachRadioArrowNavigation(container, onSelect) {
     if (currentIdx === -1) return;
 
     let nextIdx = -1;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-      nextIdx = (currentIdx + 1) % radios.length;
-    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      nextIdx = (currentIdx - 1 + radios.length) % radios.length;
-    } else if (e.key === 'Home') {
-      nextIdx = 0;
-    } else if (e.key === 'End') {
-      nextIdx = radios.length - 1;
-    }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextIdx = (currentIdx + 1) % radios.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') nextIdx = (currentIdx - 1 + radios.length) % radios.length;
+    else if (e.key === 'Home') nextIdx = 0;
+    else if (e.key === 'End') nextIdx = radios.length - 1;
 
     if (nextIdx !== -1) {
       e.preventDefault();
@@ -403,7 +483,11 @@ const gameEngine = new RhythmGameEngine({
   callbacks: {
     onStateChange(newState) {
       el.overlayCalibration.classList.toggle('hidden', newState !== 'calibrating');
-      el.overlayPause.classList.toggle('hidden', newState !== 'paused');
+      if (newState === 'paused') {
+        openModalDialog(el.overlayPause, el.btnPauseGame);
+      } else if (!el.overlayPause.classList.contains('hidden')) {
+        closeModalDialog(el.overlayPause);
+      }
     },
     onCalibrationUpdate({ handsCount, requiredHands, progress, secondsLeft }) {
       el.statusHand1.classList.toggle('detected', handsCount >= 1);
@@ -438,10 +522,11 @@ const gameEngine = new RhythmGameEngine({
 });
 
 // ============================================================================
-// Audio / Visual Latency Calibration Modal (8-Beat Median Measurement)
+// Dual Latency Calibration (Keyboard Tap/Space OR Real Webcam Hand-Clap)
 // ============================================================================
 const latencyCalib = {
   active: false,
+  inputMode: 'keyboard', // 'keyboard' | 'camera'
   beatTimes: [],
   deltasMs: [],
   measuredOffsetMs: 0,
@@ -449,14 +534,35 @@ const latencyCalib = {
   leadInBeats: 2,
   totalBeats: 8,
   bpm: 90,
+  prevHandsClosed: false,
+  lastClapPerfMs: 0,
 };
 
-function updateLatencyUI(ms) {
-  appState.latencyOffsetMs = saveLatencyOffset(ms);
-  el.latencySlider.value = String(appState.latencyOffsetMs);
-  const sign = appState.latencyOffsetMs > 0 ? '+' : '';
-  el.latencyValue.textContent = `${sign}${appState.latencyOffsetMs} ms`;
-  gameEngine.setLatencyOffsetMs(appState.latencyOffsetMs);
+function formatLatencyAriaValueText(ms) {
+  if (appState.lang === 'th') {
+    if (ms === 0) return '0 มิลลิวินาที (ไม่ชดเชย)';
+    return ms > 0 ? `ช้ากว่า ${ms} มิลลิวินาที` : `เร็วกว่า ${Math.abs(ms)} มิลลิวินาที`;
+  }
+  if (ms === 0) return '0 milliseconds (no offset)';
+  return ms > 0 ? `${ms} milliseconds late` : `${Math.abs(ms)} milliseconds early`;
+}
+
+function updateLatencyUI(ms, profile = appState.latencyProfile) {
+  appState.latencyOffsets[profile] = clampOffset(ms);
+  appState.latencyOffsets = saveLatencyOffsets(appState.latencyOffsets);
+
+  const shownMs = appState.latencyOffsets[appState.latencyProfile];
+  el.latencySlider.value = String(shownMs);
+  el.latencySlider.setAttribute('aria-valuetext', formatLatencyAriaValueText(shownMs));
+
+  const sign = shownMs > 0 ? '+' : '';
+  el.latencyValue.textContent = `${sign}${shownMs} ms`;
+
+  // Keep engine synced to whichever mode is currently active
+  const activeOffset = appState.useCamera
+    ? appState.latencyOffsets.camera
+    : appState.latencyOffsets.keyboard;
+  gameEngine.setLatencyOffsetMs(activeOffset);
 }
 
 function computeMedian(values) {
@@ -476,26 +582,39 @@ function stopLatencyCalibration() {
 }
 
 async function startLatencyCalibration() {
-  // Explicitly unlock/resume AudioContext on user gesture
   await audioEngine.init();
   stopLatencyCalibration();
 
   const dict = I18N[appState.lang];
+
+  // If measuring real webcam hand-clap latency, initialize camera & MediaPipe first
+  if (latencyCalib.inputMode === 'camera') {
+    el.latencyTapLabel.textContent = dict.loadingModel;
+    try {
+      await visionTracker.init(el.video);
+    } catch {
+      el.latencyResultText.textContent = dict.cameraError;
+      return;
+    }
+  }
+
   const secPerBeat = 60 / latencyCalib.bpm;
-  const startAudio = audioEngine.getCurrentTime() + 0.25;
+  // Anchor scheduled beats to speaker-output-aligned clock
+  const startAudio = audioEngine.getOutputClockTime() + 0.3;
 
   latencyCalib.active = true;
   latencyCalib.deltasMs = [];
   latencyCalib.beatTimes = [];
+  latencyCalib.prevHandsClosed = false;
+  latencyCalib.lastClapPerfMs = 0;
 
   el.latencyBeatDots.forEach((d) => d.classList.remove('active', 'recorded'));
   el.latencyResultText.textContent = '';
   el.btnLatencyApply.classList.add('hidden');
   el.btnLatencyStart.disabled = true;
-  el.btnLatencyTap.disabled = false;
+  el.btnLatencyTap.disabled = latencyCalib.inputMode === 'camera';
   el.latencyTapLabel.textContent = dict.latencyTapReady;
 
-  // Schedule 2 lead-in beats + 8 measurement beats strictly on Web Audio clock
   const totalScheduled = latencyCalib.leadInBeats + latencyCalib.totalBeats;
   for (let i = 0; i < totalScheduled; i++) {
     const t = startAudio + i * secPerBeat;
@@ -508,21 +627,39 @@ async function startLatencyCalibration() {
 
   const endTime = startAudio + totalScheduled * secPerBeat + 0.35;
 
-  function tick() {
+  function tick(nowMs) {
     if (!latencyCalib.active) return;
-    const now = audioEngine.getCurrentTime();
+    const nowAudio = audioEngine.getOutputClockTime();
 
-    if (now >= latencyCalib.beatTimes[0] - 0.15) {
-      el.latencyTapLabel.textContent = dict.latencyTapNow;
+    if (nowAudio >= latencyCalib.beatTimes[0] - 0.15) {
+      el.latencyTapLabel.textContent =
+        latencyCalib.inputMode === 'camera' ? dict.latencyTapNowCam : dict.latencyTapNowKey;
     }
 
-    // Highlight current beat dot visually
+    // In webcam calibration mode, detect real palm-clap contact via MediaPipe
+    if (latencyCalib.inputMode === 'camera' && visionTracker.isReady) {
+      visionTracker.detect(nowMs);
+      if (visionTracker.hands.length >= 2) {
+        const h1 = visionTracker.hands[0];
+        const h2 = visionTracker.hands[1];
+        const palmDist = Math.hypot(h1.palmCenter.x - h2.palmCenter.x, h1.palmCenter.y - h2.palmCenter.y);
+        const normDist = palmDist / ((h1.handSize + h2.handSize) / 2);
+        const closed = normDist < visionTracker.CHING_CLOSE_THRESH;
+
+        if (closed && !latencyCalib.prevHandsClosed && nowMs - latencyCalib.lastClapPerfMs > 220) {
+          latencyCalib.lastClapPerfMs = nowMs;
+          recordLatencySample(nowAudio);
+        }
+        latencyCalib.prevHandsClosed = closed;
+      }
+    }
+
     latencyCalib.beatTimes.forEach((bt, idx) => {
-      const isCurrent = Math.abs(now - bt) < 0.12;
+      const isCurrent = Math.abs(nowAudio - bt) < 0.12;
       el.latencyBeatDots[idx]?.classList.toggle('active', isCurrent);
     });
 
-    if (now >= endTime) {
+    if (nowAudio >= endTime) {
       finishLatencyCalibration();
       return;
     }
@@ -532,20 +669,17 @@ async function startLatencyCalibration() {
   latencyCalib.rafId = requestAnimationFrame(tick);
 }
 
-function recordLatencyTap() {
+function recordLatencySample(sampleAudioTime = audioEngine.getOutputClockTime()) {
   if (!latencyCalib.active) return;
-  const tapTime = audioEngine.getCurrentTime();
 
-  // Visual tap pulse
   el.btnLatencyTap.classList.add('tapped');
   setTimeout(() => el.btnLatencyTap.classList.remove('tapped'), 90);
 
-  // Match tap to nearest scheduled measurement beat within ±300ms
   let bestIdx = -1;
   let bestDeltaSec = Infinity;
   latencyCalib.beatTimes.forEach((bt, idx) => {
-    const diff = tapTime - bt;
-    if (Math.abs(diff) < Math.abs(bestDeltaSec) && Math.abs(diff) <= 0.3) {
+    const diff = sampleAudioTime - bt;
+    if (Math.abs(diff) < Math.abs(bestDeltaSec) && Math.abs(diff) <= 0.32) {
       bestDeltaSec = diff;
       bestIdx = idx;
     }
@@ -564,26 +698,30 @@ function finishLatencyCalibration() {
   if (latencyCalib.deltasMs.length < 3) {
     el.latencyResultText.textContent =
       appState.lang === 'th'
-        ? 'ได้ข้อมูลน้อยเกินไป กรุณาลองกดตามจังหวะใหม่อีกครั้ง'
-        : 'Too few taps detected. Please try again on the beat.';
+        ? 'ได้ข้อมูลน้อยเกินไป กรุณาลองทำตามจังหวะใหม่อีกครั้ง'
+        : 'Too few inputs detected. Please try again on the beat.';
     return;
   }
 
-  // Median filters out stray early/late outlier taps
   const medianMs = computeMedian(latencyCalib.deltasMs);
   const rounded = Math.max(-200, Math.min(200, Math.round(medianMs / 5) * 5));
   latencyCalib.measuredOffsetMs = rounded;
 
   const sign = rounded > 0 ? '+' : '';
+  const modeLabel =
+    latencyCalib.inputMode === 'camera'
+      ? I18N[appState.lang].latencyModeCamera
+      : I18N[appState.lang].latencyModeKeyboard;
+
   el.latencyResultText.textContent =
     appState.lang === 'th'
-      ? `วัดได้ค่าชดเชย (มัธยฐาน): ${sign}${rounded} ms (จาก ${latencyCalib.deltasMs.length} ครั้ง)`
-      : `Measured Offset (Median): ${sign}${rounded} ms (${latencyCalib.deltasMs.length} taps)`;
+      ? `${modeLabel} — ค่ามัธยฐาน: ${sign}${rounded} ms (จาก ${latencyCalib.deltasMs.length} ครั้ง)`
+      : `${modeLabel} — Median Offset: ${sign}${rounded} ms (${latencyCalib.deltasMs.length} samples)`;
   el.btnLatencyApply.classList.remove('hidden');
 }
 
 // ============================================================================
-// UI Rendering & i18n
+// UI Rendering & Full Bilingual i18n (Text + ARIA Labels)
 // ============================================================================
 function showScreen(name) {
   el.screenSetup.classList.toggle('active', name === 'setup');
@@ -604,9 +742,15 @@ function applyTranslations() {
     }
   });
 
-  el.hudProgressTrack.setAttribute('aria-label', dict.progressLabel);
-  el.canvas.setAttribute('aria-label', dict.canvasLabel);
+  // Dynamically translate ALL aria-label attributes (no hardcoded Thai left behind in EN)
+  document.querySelectorAll('[data-i18n-aria]').forEach((node) => {
+    const key = node.dataset.i18nAria;
+    if (dict[key] !== undefined) {
+      node.setAttribute('aria-label', dict[key]);
+    }
+  });
 
+  updateLatencyUI(appState.latencyOffsets[appState.latencyProfile], appState.latencyProfile);
   renderDifficultyCards();
   updateGestureHint();
 }
@@ -635,14 +779,15 @@ function renderDifficultyCards() {
       ? `<span>${dict.bestPrefix}: <strong>${best.score.toLocaleString()}</strong></span><span>Grade ${best.grade}</span>`
       : `<span>${dict.noBestYet}</span><span>—</span>`;
 
+    // Valid HTML5 phrasing content (<span> only inside <button>)
     btn.innerHTML = `
-      <div class="diff-top">
+      <span class="diff-top">
         <span class="diff-badge lvl-${levelNum}">${cfg.badge[appState.lang]}</span>
         <span style="font-size:0.82rem;color:var(--text-muted);font-weight:700;">${cfg.bpm} BPM</span>
-      </div>
-      <div class="diff-song">${beatmap.title[appState.lang]}</div>
-      <ul class="diff-meta"><li>${descText}</li></ul>
-      <div class="diff-best">${bestText}</div>
+      </span>
+      <span class="diff-song">${beatmap.title[appState.lang]}</span>
+      <span class="diff-meta">${descText}</span>
+      <span class="diff-best">${bestText}</span>
     `;
 
     btn.addEventListener('click', () => {
@@ -662,7 +807,11 @@ function updateGestureHint() {
     taphon: appState.useCamera ? dict.hintTaphonCam : dict.hintTaphonKey,
     khlui: appState.useCamera ? dict.hintKhluiCam : dict.hintKhluiKey,
   };
-  el.gestureHintBar.textContent = map[appState.instrument] || '';
+  const nextText = map[appState.instrument] || '';
+  // Guard aria-live updates so screen readers only speak when text actually changes
+  if (el.gestureHintBar.textContent !== nextText) {
+    el.gestureHintBar.textContent = nextText;
+  }
 }
 
 // ============================================================================
@@ -672,7 +821,6 @@ async function launchGame({ useCamera }) {
   el.setupError.classList.add('hidden');
   appState.useCamera = useCamera;
 
-  // Always unlock/resume AudioContext directly inside the Start button click gesture
   await audioEngine.init();
 
   const beatmap = getBeatmap(appState.instrument, appState.level);
@@ -704,10 +852,11 @@ async function launchGame({ useCamera }) {
     el.overlayLoading.classList.add('hidden');
   }
 
+  const modeOffset = useCamera ? appState.latencyOffsets.camera : appState.latencyOffsets.keyboard;
   gameEngine.startSession(beatmap, {
     useCamera,
     landmarkIdx: appState.landmarkIdx,
-    latencyOffsetMs: appState.latencyOffsetMs,
+    latencyOffsetMs: modeOffset,
   });
 }
 
@@ -743,7 +892,9 @@ function exitToMenu() {
   visionTracker.stopCamera();
   el.overlayLoading.classList.add('hidden');
   el.overlayCalibration.classList.add('hidden');
-  el.overlayPause.classList.add('hidden');
+  if (!el.overlayPause.classList.contains('hidden')) {
+    closeModalDialog(el.overlayPause);
+  }
   showScreen('setup');
   renderDifficultyCards();
 }
@@ -763,64 +914,97 @@ el.langBtns.forEach((btn) => {
   });
 });
 
-// Instrument ARIA radiogroup (click + arrow keys)
+// Instrument ARIA radiogroup
 function selectInstrumentNode(card) {
   appState.instrument = card.dataset.instrument;
   syncRadioGroupUI(el.instrumentGroup, card);
   el.ranatOptions.classList.toggle('hidden', appState.instrument !== 'ranat');
   renderDifficultyCards();
 }
-el.instrumentCards.forEach((card) => {
-  card.addEventListener('click', () => selectInstrumentNode(card));
-});
+el.instrumentCards.forEach((card) => card.addEventListener('click', () => selectInstrumentNode(card)));
 attachRadioArrowNavigation(el.instrumentGroup, selectInstrumentNode);
 
-// Landmark ARIA radiogroup (click + arrow keys)
+// Landmark ARIA radiogroup
 function selectLandmarkNode(btn) {
   appState.landmarkIdx = Number(btn.dataset.landmark);
   syncRadioGroupUI(el.landmarkGroup, btn);
   gameEngine.setLandmarkIndex(appState.landmarkIdx);
 }
-el.landmarkBtns.forEach((btn) => {
-  btn.addEventListener('click', () => selectLandmarkNode(btn));
-});
+el.landmarkBtns.forEach((btn) => btn.addEventListener('click', () => selectLandmarkNode(btn)));
 attachRadioArrowNavigation(el.landmarkGroup, selectLandmarkNode);
 
-// Difficulty ARIA radiogroup arrow keys
+// Difficulty ARIA radiogroup
 attachRadioArrowNavigation(el.difficultyGrid, (card) => {
   appState.level = Number(card.dataset.level);
 });
 
-// Latency Slider & Modal Listeners
-el.latencySlider.addEventListener('input', (e) => updateLatencyUI(e.target.value));
-el.btnResetLatency.addEventListener('click', () => updateLatencyUI(0));
+// Latency Profile Radiogroup (Camera vs Keyboard in Setup)
+function selectLatencyProfileNode(btn) {
+  appState.latencyProfile = btn.dataset.latencyMode;
+  syncRadioGroupUI(el.latencyModeGroup, btn);
+  updateLatencyUI(appState.latencyOffsets[appState.latencyProfile], appState.latencyProfile);
+}
+el.latencyModeBtns.forEach((btn) => btn.addEventListener('click', () => selectLatencyProfileNode(btn)));
+attachRadioArrowNavigation(el.latencyModeGroup, selectLatencyProfileNode);
+
+// Modal Input Mode Radiogroup (Tap/Space vs Webcam Hand-Clap)
+function selectModalCalibModeNode(btn) {
+  latencyCalib.inputMode = btn.dataset.calibInput;
+  syncRadioGroupUI(el.modalCalibModeGroup, btn);
+}
+el.modalCalibModeBtns.forEach((btn) => btn.addEventListener('click', () => selectModalCalibModeNode(btn)));
+attachRadioArrowNavigation(el.modalCalibModeGroup, selectModalCalibModeNode);
+
+// Latency Slider & Modal Controls
+el.latencySlider.addEventListener('input', (e) => updateLatencyUI(e.target.value, appState.latencyProfile));
+el.btnResetLatency.addEventListener('click', () => updateLatencyUI(0, appState.latencyProfile));
+
 el.btnOpenLatency.addEventListener('click', () => {
-  el.modalLatency.classList.remove('hidden');
+  // Sync modal input mode to currently selected Setup latency profile
+  const matchingBtn = Array.from(el.modalCalibModeBtns).find(
+    (b) => b.dataset.calibInput === appState.latencyProfile
+  );
+  if (matchingBtn) selectModalCalibModeNode(matchingBtn);
+
   el.latencyResultText.textContent = '';
   el.btnLatencyApply.classList.add('hidden');
   el.latencyTapLabel.textContent = I18N[appState.lang].latencyTapIdle;
-});
-el.btnLatencyStart.addEventListener('click', startLatencyCalibration);
-el.btnLatencyTap.addEventListener('pointerdown', (e) => {
-  e.preventDefault();
-  recordLatencyTap();
-});
-el.btnLatencyApply.addEventListener('click', () => {
-  updateLatencyUI(latencyCalib.measuredOffsetMs);
-  stopLatencyCalibration();
-  el.modalLatency.classList.add('hidden');
-});
-el.btnLatencyClose.addEventListener('click', () => {
-  stopLatencyCalibration();
-  el.modalLatency.classList.add('hidden');
+  openModalDialog(el.modalLatency, el.btnOpenLatency);
 });
 
-// Sound Test Button (Unlocks AudioContext + Demos selected Thai instrument)
+el.btnLatencyStart.addEventListener('click', startLatencyCalibration);
+
+// Listen ONLY to pointerdown (not click) so focused Spacebar never double-triggers!
+el.btnLatencyTap.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (latencyCalib.inputMode === 'keyboard') {
+    recordLatencySample();
+  }
+});
+
+el.btnLatencyApply.addEventListener('click', () => {
+  appState.latencyProfile = latencyCalib.inputMode;
+  const setupModeBtn = Array.from(el.latencyModeBtns).find(
+    (b) => b.dataset.latencyMode === appState.latencyProfile
+  );
+  if (setupModeBtn) syncRadioGroupUI(el.latencyModeGroup, setupModeBtn);
+
+  updateLatencyUI(latencyCalib.measuredOffsetMs, latencyCalib.inputMode);
+  stopLatencyCalibration();
+  closeModalDialog(el.modalLatency);
+});
+
+el.btnLatencyClose.addEventListener('click', () => {
+  stopLatencyCalibration();
+  closeModalDialog(el.modalLatency);
+});
+
+// Sound Test Button (Thai 7-TET tuning demo)
 el.btnSoundTest.addEventListener('click', async () => {
   await audioEngine.init();
   if (appState.instrument === 'ranat') {
-    [523.25, 587.33, 659.25, 783.99, 880.0].forEach((f, i) => {
-      setTimeout(() => audioEngine.playRanat(f, '', 0.85), i * 125);
+    [0, 1, 2, 4, 5].forEach((step, i) => {
+      setTimeout(() => audioEngine.playRanat(thai7TetFreq(step), '', 0.85), i * 125);
     });
   } else if (appState.instrument === 'ching') {
     audioEngine.playChing();
@@ -830,8 +1014,8 @@ el.btnSoundTest.addEventListener('click', async () => {
       setTimeout(() => audioEngine.playTaphon(zone, 0.9), i * 180);
     });
   } else if (appState.instrument === 'khlui') {
-    [523.25, 659.25, 783.99, 880.0].forEach((f, i) => {
-      setTimeout(() => audioEngine.playKhlui(f, 0.35), i * 260);
+    [0, 2, 4, 5].forEach((step, i) => {
+      setTimeout(() => audioEngine.playKhlui(thai7TetFreq(step), 0.35), i * 260);
     });
   }
 });
@@ -846,10 +1030,13 @@ el.btnResumeGame.addEventListener('click', () => gameEngine.resume());
 
 function restartCurrentSong() {
   const beatmap = getBeatmap(appState.instrument, appState.level);
+  const modeOffset = appState.useCamera
+    ? appState.latencyOffsets.camera
+    : appState.latencyOffsets.keyboard;
   gameEngine.startSession(beatmap, {
     useCamera: appState.useCamera,
     landmarkIdx: appState.landmarkIdx,
-    latencyOffsetMs: appState.latencyOffsetMs,
+    latencyOffsetMs: modeOffset,
   });
 }
 el.btnRestartGame.addEventListener('click', restartCurrentSong);
@@ -863,19 +1050,19 @@ el.btnNextLevel.addEventListener('click', () => {
 });
 el.btnSummaryMenu.addEventListener('click', exitToMenu);
 
-// Global Keyboard Handler (Latency Modal Spacebar + Pause + Accessible Play Mode)
+// Global Keyboard Handler (Spacebar Deduplicated + Escape Modal Close)
 window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   const key = e.key.toLowerCase();
 
-  // Handle Spacebar inside Latency Calibration Modal
   if (!el.modalLatency.classList.contains('hidden')) {
-    if (key === ' ' && latencyCalib.active) {
+    if (key === ' ' && latencyCalib.active && latencyCalib.inputMode === 'keyboard') {
+      // Prevent default stops Spacebar from also triggering click on focused buttons
       e.preventDefault();
-      recordLatencyTap();
+      recordLatencySample();
     } else if (key === 'escape') {
       stopLatencyCalibration();
-      el.modalLatency.classList.add('hidden');
+      closeModalDialog(el.modalLatency);
     }
     return;
   }
@@ -892,15 +1079,14 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Register Classroom Offline PWA Service Worker (http/https only)
+// Register PWA Service Worker (http/https only)
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.protocol === 'http:')) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {
-      // Non-fatal if SW registration is blocked in embedded previews
+      // Non-fatal in sandboxed/preview frames
     });
   });
 }
 
 // Initial Setup Render
-updateLatencyUI(appState.latencyOffsetMs);
 applyTranslations();

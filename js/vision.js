@@ -63,11 +63,11 @@ export class HandVisionTracker {
       palmMidpoint: null,     // { x, y } in mirrored normalized coords
     };
 
-    // Khlui (Bamboo Flute) finger-count stability state
+    // Khlui (Bamboo Flute) finger-count stability state (4-frame debounce)
     this.khluiState = {
       currentFingers: 0,
       candidateFingers: 0,
-      candidateSinceMs: 0,
+      candidateFrames: 0,
       lastEmitMs: 0,
     };
   }
@@ -156,7 +156,7 @@ export class HandVisionTracker {
     this.khluiState = {
       currentFingers: 0,
       candidateFingers: 0,
-      candidateSinceMs: 0,
+      candidateFrames: 0,
       lastEmitMs: 0,
     };
   }
@@ -182,7 +182,11 @@ export class HandVisionTracker {
     if (result && result.landmarks) {
       for (let i = 0; i < result.landmarks.length; i++) {
         const rawLandmarks = result.landmarks[i];
-        const handedness = result.handednesses?.[i]?.[0]?.categoryName || `Hand${i}`;
+        const rawHandedness = result.handednesses?.[i]?.[0]?.categoryName || `Hand${i}`;
+        // Because the webcam feed is mirrored horizontally, swap Left <-> Right
+        // so handedness labels match the player's own perspective.
+        const handedness =
+          rawHandedness === 'Left' ? 'Right' : rawHandedness === 'Right' ? 'Left' : rawHandedness;
 
         // Mirror X coordinate so it matches ctx.scale(-1, 1) webcam rendering
         const landmarks = rawLandmarks.map((pt) => ({
@@ -433,48 +437,57 @@ export class HandVisionTracker {
 
   /**
    * Counts extended fingers (1..5) for Khlui (Thai Bamboo Flute) note selection.
-   * Uses orientation-independent thumb check + vertical PIP/TIP check for 4 fingers,
-   * smoothed by a 45ms stability debounce to prevent single-frame flickers.
+   * Rotation-invariant geometry:
+   *  - Index/Middle/Ring/Pinky: extended when dist(tip, wrist) > dist(pip, wrist) * 1.15
+   *    (works accurately even when the hand is tilted or rotated).
+   *  - Thumb: separate criterion comparing distance to pinky MCP (17) and wrist (0).
+   *  - 4-frame consecutive stability debounce prevents noisy single-frame note switches.
    */
   evaluateKhluiFingers(nowMs) {
     const ks = this.khluiState;
     if (this.hands.length === 0) {
       ks.currentFingers = 0;
+      ks.candidateFingers = 0;
+      ks.candidateFrames = 0;
       return { fingerCount: 0, triggeredLane: -1 };
     }
 
-    // Use the hand with the highest extended finger count (allows playing with either hand)
+    const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
     let bestCount = 0;
+
     for (const hand of this.hands) {
       const lm = hand.landmarks;
+      const wrist = lm[0];
       let count = 0;
 
       // Index (8 vs 6), Middle (12 vs 10), Ring (16 vs 14), Pinky (20 vs 18)
       const fingerPairs = [[8, 6], [12, 10], [16, 14], [20, 18]];
       for (const [tipIdx, pipIdx] of fingerPairs) {
-        if (lm[tipIdx].y < lm[pipIdx].y - 0.02) {
+        if (dist(lm[tipIdx], wrist) > dist(lm[pipIdx], wrist) * 1.15) {
           count++;
         }
       }
 
-      // Orientation-independent thumb extension: tip (4) farther from pinky MCP (17) than IP (3)
-      const tipToPinky = Math.hypot(lm[4].x - lm[17].x, lm[4].y - lm[17].y);
-      const ipToPinky = Math.hypot(lm[3].x - lm[17].x, lm[3].y - lm[17].y);
-      if (tipToPinky > ipToPinky * 1.12) {
+      // Separate thumb extension criterion (orientation-independent)
+      const thumbFarFromPinky = dist(lm[4], lm[17]) > dist(lm[3], lm[17]) * 1.14;
+      const thumbFarFromWrist = dist(lm[4], wrist) > dist(lm[2], wrist) * 1.12;
+      if (thumbFarFromPinky && thumbFarFromWrist) {
         count++;
       }
 
       if (count > bestCount) bestCount = count;
     }
 
-    // Stability debounce (45ms) before accepting a new finger count
-    if (bestCount !== ks.candidateFingers) {
+    // 4-frame consecutive stability debounce
+    if (bestCount === ks.candidateFingers) {
+      ks.candidateFrames += 1;
+    } else {
       ks.candidateFingers = bestCount;
-      ks.candidateSinceMs = nowMs;
+      ks.candidateFrames = 1;
     }
 
     let triggeredLane = -1;
-    if (nowMs - ks.candidateSinceMs >= 45 && ks.candidateFingers !== ks.currentFingers) {
+    if (ks.candidateFrames >= 4 && ks.candidateFingers !== ks.currentFingers) {
       ks.currentFingers = ks.candidateFingers;
       if (ks.currentFingers >= 1 && ks.currentFingers <= 5 && nowMs - ks.lastEmitMs >= this.COOLDOWN_MS) {
         ks.lastEmitMs = nowMs;

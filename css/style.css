@@ -1188,3 +1188,75 @@ button:focus-visible {
   font-weight: 700;
   color: var(--jade);
 }
+
+/* ==========================================================================
+   Valid HTML5 Phrasing Spans inside <button> Cards & <noscript> Banner
+   ========================================================================== */
+.noscript-banner {
+  max-width: 960px;
+  margin: 20px auto 0;
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  background: var(--coral-dim);
+  border: 1px solid var(--coral);
+  color: var(--text-primary);
+  text-align: center;
+  font-size: 0.96rem;
+}
+
+.card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.card-heading {
+  display: block;
+  font-size: 1.04rem;
+  font-weight: 700;
+  margin-bottom: 5px;
+  color: var(--gold-bright);
+}
+
+.card-desc {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.diff-top,
+.diff-song,
+.diff-meta,
+.diff-best {
+  display: flex;
+  width: 100%;
+}
+
+.diff-song {
+  display: block;
+}
+
+.diff-meta {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.latency-mode-bar {
+  margin-top: 0;
+  padding-top: 10px;
+}

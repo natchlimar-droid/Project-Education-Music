@@ -8,13 +8,15 @@
  *     so schools with limited or intermittent internet can run offline.
  */
 
-const APP_CACHE = 'siam-rhythm-app-v2';
+const APP_CACHE = 'siam-rhythm-app-v3';
 const MODEL_CACHE = 'siam-rhythm-mediapipe-v1';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
   './css/style.css',
   './js/main.js',
   './js/audio.js',

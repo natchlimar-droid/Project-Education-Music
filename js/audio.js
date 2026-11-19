@@ -55,10 +55,31 @@ export class ThaiAudioEngine {
   }
 
   /**
-   * Authoritative high-precision hardware audio clock (in seconds).
+   * Authoritative hardware audio clock (in seconds).
    */
   getCurrentTime() {
     return this.ctx ? this.ctx.currentTime : 0;
+  }
+
+  /**
+   * Returns the estimated audio time currently emerging from the speakers/headphones,
+   * accounting for `getOutputTimestamp()` and `outputLatency` (crucial for Bluetooth).
+   */
+  getOutputClockTime() {
+    if (!this.ctx) return 0;
+    try {
+      if (typeof this.ctx.getOutputTimestamp === 'function') {
+        const ts = this.ctx.getOutputTimestamp();
+        if (ts && Number.isFinite(ts.contextTime) && ts.contextTime > 0) {
+          const perfDeltaSec = (performance.now() - ts.performanceTime) / 1000;
+          return ts.contextTime + Math.max(0, Math.min(0.1, perfDeltaSec));
+        }
+      }
+      const latency = Number(this.ctx.outputLatency || this.ctx.baseLatency || 0);
+      return Math.max(0, this.ctx.currentTime - latency);
+    } catch {
+      return this.ctx.currentTime;
+    }
   }
 
   /**

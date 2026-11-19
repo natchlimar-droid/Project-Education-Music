@@ -9,24 +9,40 @@
  *  - khlui  : Khlui (ขลุ่ยเพียงออ) — 5 pentatonic tones via extended finger count (1-5)
  */
 
+/**
+ * Thai Traditional 7-Tone Equidistant Scale (7-TET, ~171.43 cents per step)
+ * Cents offsets from root (ด / Do):
+ *   0: ด (0c), 1: ร (171.4c), 2: ม (342.9c), 3: ฟ (514.3c),
+ *   4: ซ (685.7c), 5: ล (857.1c), 6: ท (1028.6c)
+ * Note for educators: Adjust `THAI_ROOT_HZ` or Taphon syllable labels below
+ * to match your school's specific ensemble tuning (ทางระดับเสียง).
+ */
+export const THAI_ROOT_HZ = 523.25; // C5 reference
+
+export function thai7TetFreq(stepIndex, rootHz = THAI_ROOT_HZ) {
+  const cents = (stepIndex * 1200) / 7; // ~171.4286 cents per step
+  return Number((rootHz * Math.pow(2, cents / 1200)).toFixed(2));
+}
+
 export const RANAT_KEYS_5 = [
-  { id: 'D', th: 'ด', en: 'Do', freq: 523.25, color: '#dfb258', keyHint: 'A' },
-  { id: 'R', th: 'ร', en: 'Re', freq: 587.33, color: '#4cc2a8', keyHint: 'S' },
-  { id: 'M', th: 'ม', en: 'Mi', freq: 659.25, color: '#6cb4ee', keyHint: 'D' },
-  { id: 'S', th: 'ซ', en: 'Sol', freq: 783.99, color: '#e87458', keyHint: 'F' },
-  { id: 'L', th: 'ล', en: 'La', freq: 880.00, color: '#c48df2', keyHint: 'G' },
+  { id: 'D', th: 'ด', en: 'Do',  freq: thai7TetFreq(0), color: '#dfb258', keyHint: 'A' },
+  { id: 'R', th: 'ร', en: 'Re',  freq: thai7TetFreq(1), color: '#4cc2a8', keyHint: 'S' },
+  { id: 'M', th: 'ม', en: 'Mi',  freq: thai7TetFreq(2), color: '#6cb4ee', keyHint: 'D' },
+  { id: 'S', th: 'ซ', en: 'Sol', freq: thai7TetFreq(4), color: '#e87458', keyHint: 'F' },
+  { id: 'L', th: 'ล', en: 'La',  freq: thai7TetFreq(5), color: '#c48df2', keyHint: 'G' },
 ];
 
 export const RANAT_KEYS_7 = [
-  { id: 'D', th: 'ด', en: 'Do', freq: 523.25, color: '#dfb258', keyHint: 'A' },
-  { id: 'R', th: 'ร', en: 'Re', freq: 587.33, color: '#4cc2a8', keyHint: 'S' },
-  { id: 'M', th: 'ม', en: 'Mi', freq: 659.25, color: '#6cb4ee', keyHint: 'D' },
-  { id: 'F', th: 'ฟ', en: 'Fa', freq: 698.46, color: '#8ad47c', keyHint: 'F' },
-  { id: 'S', th: 'ซ', en: 'Sol', freq: 783.99, color: '#e87458', keyHint: 'G' },
-  { id: 'L', th: 'ล', en: 'La', freq: 880.00, color: '#c48df2', keyHint: 'H' },
-  { id: 'T', th: 'ท', en: 'Ti', freq: 987.77, color: '#f28db2', keyHint: 'J' },
+  { id: 'D', th: 'ด', en: 'Do',  freq: thai7TetFreq(0), color: '#dfb258', keyHint: 'A' },
+  { id: 'R', th: 'ร', en: 'Re',  freq: thai7TetFreq(1), color: '#4cc2a8', keyHint: 'S' },
+  { id: 'M', th: 'ม', en: 'Mi',  freq: thai7TetFreq(2), color: '#6cb4ee', keyHint: 'D' },
+  { id: 'F', th: 'ฟ', en: 'Fa',  freq: thai7TetFreq(3), color: '#8ad47c', keyHint: 'F' },
+  { id: 'S', th: 'ซ', en: 'Sol', freq: thai7TetFreq(4), color: '#e87458', keyHint: 'G' },
+  { id: 'L', th: 'ล', en: 'La',  freq: thai7TetFreq(5), color: '#c48df2', keyHint: 'H' },
+  { id: 'T', th: 'ท', en: 'Ti',  freq: thai7TetFreq(6), color: '#f28db2', keyHint: 'J' },
 ];
 
+// Taphon / Thai Drum 4 zones (verify syllable naming with Thai music instructor if desired)
 export const TAPHON_ZONES = [
   { id: 'ting', th: 'ติง', en: 'Ting (Rim)', zoneType: 'rim', color: '#6cb4ee', keyHint: 'A' },
   { id: 'thum', th: 'ทุ่ม', en: 'Thum (Bass)', zoneType: 'head', color: '#dfb258', keyHint: 'S' },
@@ -35,11 +51,11 @@ export const TAPHON_ZONES = [
 ];
 
 export const KHLUI_NOTES = [
-  { id: 'D', fingers: 1, th: 'ด', en: 'Do',  freq: 523.25, color: '#dfb258', keyHint: '1' },
-  { id: 'R', fingers: 2, th: 'ร', en: 'Re',  freq: 587.33, color: '#4cc2a8', keyHint: '2' },
-  { id: 'M', fingers: 3, th: 'ม', en: 'Mi',  freq: 659.25, color: '#6cb4ee', keyHint: '3' },
-  { id: 'S', fingers: 4, th: 'ซ', en: 'Sol', freq: 783.99, color: '#e87458', keyHint: '4' },
-  { id: 'L', fingers: 5, th: 'ล', en: 'La',  freq: 880.00, color: '#c48df2', keyHint: '5' },
+  { id: 'D', fingers: 1, th: 'ด', en: 'Do',  freq: thai7TetFreq(0), color: '#dfb258', keyHint: '1' },
+  { id: 'R', fingers: 2, th: 'ร', en: 'Re',  freq: thai7TetFreq(1), color: '#4cc2a8', keyHint: '2' },
+  { id: 'M', fingers: 3, th: 'ม', en: 'Mi',  freq: thai7TetFreq(2), color: '#6cb4ee', keyHint: '3' },
+  { id: 'S', fingers: 4, th: 'ซ', en: 'Sol', freq: thai7TetFreq(4), color: '#e87458', keyHint: '4' },
+  { id: 'L', fingers: 5, th: 'ล', en: 'La',  freq: thai7TetFreq(5), color: '#c48df2', keyHint: '5' },
 ];
 
 /**
