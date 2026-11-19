@@ -37,7 +37,11 @@ const I18N = {
     langGroupAria: 'สลับภาษา',
     heroEyebrow: 'UNIVERSAL DESIGN FOR LEARNING • เล่นได้ทุกวัย',
     heroTitle: 'สัมผัสจังหวะดนตรีไทยด้วยสองมือของคุณ',
-    heroDesc: 'ฝึกจังหวะและการประสานสัมพันธ์ของมือผ่านกล้องเว็บแคมแบบเรียลไทม์ ไม่ต้องติดตั้งโปรแกรม',
+    heroDesc: 'ฝึกจังหวะและการประสานสัมพันธ์ของมือผ่านกล้องเว็บแคม ปุ่มสัมผัส หรือคีย์บอร์ด เล่นได้ทุกวัยไม่ต้องติดตั้ง',
+    quickStartCamBtn: 'เริ่มเล่นทันที (เปิดกล้อง)',
+    quickStartTouchBtn: '⌨️ เล่นทันทีด้วยสัมผัส / คีย์บอร์ด',
+    switchTouchNowBtn: '⌨️ สลับไปเล่นด้วยสัมผัส / คีย์บอร์ดทันที',
+    oneHandModeLabel: 'โหมดมือเดียว (ไม่บังคับยกสองมือ เหมาะสำหรับผู้สูงอายุ/ผู้ถนัดมือเดียว)',
     selectInstrument: 'เลือกเครื่องดนตรี',
     ranatTitle: 'ระนาดเอก (Ranat Ek)',
     ranatDesc: 'ฝึกทำนองและการประสานมือ ตีลูกระนาดเสมือนตามโน้ตที่ตกลงมา',
@@ -54,9 +58,10 @@ const I18N = {
     trackingPointLabel: 'จุดตรวจจับมือ (ระนาดเอก):',
     landmarkFinger: 'ปลายนิ้วชี้ (แม่นยำ)',
     landmarkPalm: 'กลางฝ่ามือ (สบายมือ)',
-    selectDifficulty: 'เลือกระดับความยาก',
+    selectDifficulty: 'เลือกระดับความยากและเพลง',
     selectSongLabel: 'เลือกเพลงในระดับนี้:',
     songsCountUnit: 'เพลง',
+    latencySummaryTitle: 'ตั้งค่าขั้นสูง: ปรับชดเชยดีเลย์เสียง/ภาพ (ถ้าจังหวะไม่ตรง)',
     latencyTitle: 'ปรับชดเชยดีเลย์เสียง/ภาพ (แยกโหมดกล้องและคีย์บอร์ด)',
     latencyDesc: 'โหมดกล้องมีความหน่วงจากการประมวลผลภาพต่างจากคีย์บอร์ด สามารถวัดและเก็บค่าชดเชยแยกกันได้ (±200ms)',
     openLatencyBtn: '⏱️ วัดดีเลย์อัตโนมัติ (8 จังหวะ)',
@@ -76,6 +81,7 @@ const I18N = {
     latencyTapNowCam: 'ประกบมือทั้งสองข้างหน้ากล้องตามจังหวะ!',
     latencyStartBtn: 'เริ่มวัดจังหวะ',
     latencyApplyBtn: 'บันทึกค่าชดเชย',
+    skipKeepLatencyBtn: 'ข้าม / ใช้ค่าเดิม',
     closeBtn: 'ปิด',
     privacyNotice: '<strong>ความเป็นส่วนตัวของกล้อง:</strong> ภาพจากเว็บแคมประมวลผลในเครื่อง 100% ไม่มีการบันทึกหรือส่งวิดีโอออกนอกเครื่อง (โหลดโมเดล AI จาก CDN ครั้งแรกแล้วแคชไว้เล่นออฟไลน์ในเบราว์เซอร์)',
     startCameraBtn: 'เริ่มเล่นและเปิดกล้อง',
@@ -91,16 +97,18 @@ const I18N = {
     loadingTitle: 'กำลังเตรียมระบบตรวจจับมือ...',
     loadingModel: 'กำลังโหลดโมเดล AI (MediaPipe HandLandmarker)...',
     loadingCamera: 'กำลังขออนุญาตเปิดกล้องเว็บแคม (640x480)...',
+    loadingSlowTip: 'การโหลดโมเดลใช้เวลานานกว่าปกติ คุณสามารถสลับไปเล่นด้วยปุ่มสัมผัสหรือคีย์บอร์ดได้ทันที',
     calibEyebrow: 'ตรวจสอบความพร้อมของมือ',
     calibTitleTwo: 'ยกมือทั้งสองข้างให้อยู่ในกรอบกล้อง',
     calibTitleOne: 'ยกมืออย่างน้อย 1 ข้างให้อยู่ในกรอบกล้อง',
-    calibHint: 'ค้างไว้ 3 วินาทีเพื่อเริ่มเพลงอัตโนมัติ',
+    calibHint: 'ค้างไว้ 3 วินาทีเพื่อเริ่มเพลงอัตโนมัติ หรือกดเริ่มทันที',
     handLeft: 'มือที่ 1',
     handRight: 'มือที่ 2',
-    skipCalibBtn: 'ข้ามการตรวจสอบและเริ่มทันที',
+    skipCalibBtn: '▶ เริ่มเล่นทันที',
     pausedTitle: 'หยุดพักชั่วคราว',
     resumeBtn: 'เล่นต่อ',
     backMenuBtn: 'กลับหน้าหลัก',
+    changeSongBtn: 'เปลี่ยนเพลง / หน้าหลัก',
     summaryTitle: 'สรุปผลการเล่น',
     newBestBadge: '★ สถิติสูงสุดใหม่!',
     finalScore: 'คะแนนรวม',
@@ -138,7 +146,11 @@ const I18N = {
     langGroupAria: 'Language switcher',
     heroEyebrow: 'UNIVERSAL DESIGN FOR LEARNING • ALL AGES',
     heroTitle: 'Play Thai Traditional Music With Your Hands',
-    heroDesc: 'Practice rhythm and hand coordination via real-time webcam tracking. Zero installation, accessible for every generation.',
+    heroDesc: 'Practice rhythm and hand coordination via webcam, touch pads, or keyboard. Zero installation, accessible for every generation.',
+    quickStartCamBtn: 'Quick Start (Camera)',
+    quickStartTouchBtn: '⌨️ Quick Start (Touch / Keyboard)',
+    switchTouchNowBtn: '⌨️ Switch to Touch / Keyboard Now',
+    oneHandModeLabel: 'One-Hand Mode (no two-hand check — great for seniors or one-handed play)',
     selectInstrument: 'Select Instrument',
     ranatTitle: 'Ranat Ek (Thai Xylophone)',
     ranatDesc: 'Build melody & coordination by striking virtual wooden bars as notes fall.',
@@ -155,9 +167,10 @@ const I18N = {
     trackingPointLabel: 'Ranat Tracking Point:',
     landmarkFinger: 'Index Fingertip (Precise)',
     landmarkPalm: 'Palm Center (Relaxed)',
-    selectDifficulty: 'Select Difficulty',
+    selectDifficulty: 'Select Difficulty & Song',
     selectSongLabel: 'Select Song in This Level:',
     songsCountUnit: 'songs',
+    latencySummaryTitle: 'Advanced: Audio / Visual Latency Calibration (Optional)',
     latencyTitle: 'Audio / Visual Latency Calibration (Camera vs Keyboard)',
     latencyDesc: 'Camera processing adds delay compared to keyboard input. Measure and store separate offsets (±200ms).',
     openLatencyBtn: '⏱️ Auto-Measure Delay (8 Beats)',
@@ -177,6 +190,7 @@ const I18N = {
     latencyTapNowCam: 'Clap Both Palms In Front of Camera On The Beat!',
     latencyStartBtn: 'Start Measurement',
     latencyApplyBtn: 'Save Offset',
+    skipKeepLatencyBtn: 'Skip / Keep Current',
     closeBtn: 'Close',
     privacyNotice: '<strong>Camera Privacy:</strong> Webcam video is processed 100% locally and never recorded or uploaded. The AI model is fetched once from CDN and cached offline in your browser.',
     startCameraBtn: 'Start & Enable Camera',
@@ -192,16 +206,18 @@ const I18N = {
     loadingTitle: 'Preparing Hand Tracking...',
     loadingModel: 'Loading MediaPipe HandLandmarker AI model...',
     loadingCamera: 'Requesting webcam access (640x480)...',
+    loadingSlowTip: 'Loading is taking longer than usual. You can switch to Touch or Keyboard mode immediately.',
     calibEyebrow: 'HAND READINESS CHECK',
     calibTitleTwo: 'Raise Both Hands Into Camera View',
     calibTitleOne: 'Raise At Least 1 Hand Into Camera View',
-    calibHint: 'Hold steady for 3 seconds to begin automatically',
+    calibHint: 'Hold steady for 3 seconds to begin, or press Start Now',
     handLeft: 'Hand 1',
     handRight: 'Hand 2',
-    skipCalibBtn: 'Skip Check & Start Now',
+    skipCalibBtn: '▶ Start Now',
     pausedTitle: 'Paused',
     resumeBtn: 'Resume',
     backMenuBtn: 'Back to Menu',
+    changeSongBtn: 'Change Song / Menu',
     summaryTitle: 'Performance Summary',
     newBestBadge: '★ New Personal Best!',
     finalScore: 'Final Score',
@@ -271,6 +287,7 @@ const appState = {
   instrument: 'ranat',
   level: 1,
   beatmapId: 'ranat-lvl1-chang',
+  oneHandMode: false,
   landmarkIdx: 8,
   useCamera: true,
   latencyProfile: 'camera', // Active profile shown in Setup slider ('camera' | 'keyboard')
@@ -282,9 +299,17 @@ const visionTracker = new HandVisionTracker();
 
 // DOM References
 const el = {
+  srLiveFeedback: document.getElementById('sr-live-feedback'),
   screenSetup: document.getElementById('screen-setup'),
   screenGame: document.getElementById('screen-game'),
   screenSummary: document.getElementById('screen-summary'),
+
+  btnQuickStartCam: document.getElementById('btn-quick-start-cam'),
+  btnQuickStartTouch: document.getElementById('btn-quick-start-touch'),
+  quickStartSummary: document.getElementById('quick-start-summary'),
+  setupErrorBox: document.getElementById('setup-error-box'),
+  btnErrorFallbackTouch: document.getElementById('btn-error-fallback-touch'),
+  toggleOneHand: document.getElementById('toggle-one-hand'),
 
   langBtns: document.querySelectorAll('.lang-btn'),
   btnSoundTest: document.getElementById('btn-sound-test'),
@@ -296,6 +321,7 @@ const el = {
   difficultyGrid: document.getElementById('difficulty-grid'),
   songList: document.getElementById('song-list'),
 
+  latencySummaryBadge: document.getElementById('latency-summary-badge'),
   latencyModeGroup: document.getElementById('latency-mode-group'),
   latencyModeBtns: document.querySelectorAll('[data-latency-mode]'),
   latencySlider: document.getElementById('latency-slider'),
@@ -310,6 +336,7 @@ const el = {
   btnLatencyTap: document.getElementById('btn-latency-tap'),
   latencyTapLabel: document.getElementById('latency-tap-label'),
   latencyResultText: document.getElementById('latency-result-text'),
+  latencyExplainText: document.getElementById('latency-explain-text'),
   btnLatencyStart: document.getElementById('btn-latency-start'),
   btnLatencyApply: document.getElementById('btn-latency-apply'),
   btnLatencyClose: document.getElementById('btn-latency-close'),
@@ -333,6 +360,9 @@ const el = {
 
   overlayLoading: document.getElementById('overlay-loading'),
   loadingDetail: document.getElementById('loading-detail'),
+  loadingSlowTip: document.getElementById('loading-slow-tip'),
+  btnLoadingFallbackTouch: document.getElementById('btn-loading-fallback-touch'),
+  btnLoadingCancel: document.getElementById('btn-loading-cancel'),
   overlayCalibration: document.getElementById('overlay-calibration'),
   calibTitle: document.getElementById('calib-title'),
   statusHand1: document.getElementById('status-hand-1'),
@@ -340,6 +370,7 @@ const el = {
   calibRingProgress: document.getElementById('calib-ring-progress'),
   calibSeconds: document.getElementById('calib-seconds'),
   btnSkipCalib: document.getElementById('btn-skip-calib'),
+  btnCalibSwitchTouch: document.getElementById('btn-calib-switch-touch'),
 
   overlayPause: document.getElementById('overlay-pause'),
   btnExitGame: document.getElementById('btn-exit-game'),
@@ -489,6 +520,18 @@ function savePersonalBest(beatmapId, result) {
   return { isNewBest, bestScore: Math.max(result.score, prev?.score || 0) };
 }
 
+function announceSR(message) {
+  if (!el.srLiveFeedback || !message) return;
+  if (el.srLiveFeedback.textContent === message) {
+    el.srLiveFeedback.textContent = '';
+    requestAnimationFrame(() => {
+      el.srLiveFeedback.textContent = message;
+    });
+  } else {
+    el.srLiveFeedback.textContent = message;
+  }
+}
+
 // ============================================================================
 // Game Engine Instance
 // ============================================================================
@@ -505,11 +548,17 @@ const gameEngine = new RhythmGameEngine({
       } else {
         releaseWakeLock();
       }
-      if (newState === 'paused') {
+      if (newState === 'playing') {
+        announceSR(appState.lang === 'th' ? 'เริ่มเพลงแล้ว' : 'Song started');
+      } else if (newState === 'paused') {
         openModalDialog(el.overlayPause, el.btnPauseGame);
+        announceSR(appState.lang === 'th' ? 'หยุดพักเกม' : 'Game paused');
       } else if (!el.overlayPause.classList.contains('hidden')) {
         closeModalDialog(el.overlayPause);
       }
+    },
+    onComboMilestone(combo) {
+      announceSR(appState.lang === 'th' ? `คอมโบ ${combo} ครั้งต่อเนื่อง` : `${combo} combo streak`);
     },
     onCalibrationUpdate({ handsCount, requiredHands, progress, secondsLeft }) {
       el.statusHand1.classList.toggle('detected', handsCount >= 1);
@@ -580,6 +629,12 @@ function updateLatencyUI(ms, profile = appState.latencyProfile) {
   const sign = shownMs > 0 ? '+' : '';
   el.latencyValue.textContent = `${sign}${shownMs} ms`;
 
+  if (el.latencySummaryBadge) {
+    const cSign = appState.latencyOffsets.camera > 0 ? '+' : '';
+    const kSign = appState.latencyOffsets.keyboard > 0 ? '+' : '';
+    el.latencySummaryBadge.textContent = `📷 ${cSign}${appState.latencyOffsets.camera} ms • ⌨️ ${kSign}${appState.latencyOffsets.keyboard} ms`;
+  }
+
   // Keep engine synced to whichever mode is currently active
   const activeOffset = appState.useCamera
     ? appState.latencyOffsets.camera
@@ -632,6 +687,7 @@ async function startLatencyCalibration() {
 
   el.latencyBeatDots.forEach((d) => d.classList.remove('active', 'recorded'));
   el.latencyResultText.textContent = '';
+  if (el.latencyExplainText) el.latencyExplainText.textContent = '';
   el.btnLatencyApply.classList.add('hidden');
   el.btnLatencyStart.disabled = true;
   el.btnLatencyTap.disabled = latencyCalib.inputMode === 'camera';
@@ -739,6 +795,25 @@ function finishLatencyCalibration() {
     appState.lang === 'th'
       ? `${modeLabel} — ค่ามัธยฐาน: ${sign}${rounded} ms (จาก ${latencyCalib.deltasMs.length} ครั้ง)`
       : `${modeLabel} — Median Offset: ${sign}${rounded} ms (${latencyCalib.deltasMs.length} samples)`;
+
+  if (el.latencyExplainText) {
+    if (rounded === 0) {
+      el.latencyExplainText.textContent =
+        appState.lang === 'th'
+          ? 'จังหวะภาพและเสียงตรงกันพอดี ไม่ต้องเลื่อนชดเชย'
+          : 'Audio and input are already perfectly aligned.';
+    } else if (rounded > 0) {
+      el.latencyExplainText.textContent =
+        appState.lang === 'th'
+          ? `ระบบจะเลื่อนการรับจังหวะช้าลง ${rounded} ms เพื่อให้ตรงกับเสียงที่คุณได้ยิน`
+          : `Hit detection shifts ${rounded} ms later to match the audio you hear.`;
+    } else {
+      el.latencyExplainText.textContent =
+        appState.lang === 'th'
+          ? `ระบบจะเลื่อนการรับจังหวะเร็วขึ้น ${Math.abs(rounded)} ms เพื่อให้ตรงกับเสียงที่คุณได้ยิน`
+          : `Hit detection shifts ${Math.abs(rounded)} ms earlier to match the audio you hear.`;
+    }
+  }
   el.btnLatencyApply.classList.remove('hidden');
 }
 
@@ -884,6 +959,27 @@ function renderSongList() {
 
     el.songList.appendChild(btn);
   }
+
+  updateQuickStartSummary();
+}
+
+function updateQuickStartSummary() {
+  if (!el.quickStartSummary) return;
+  const dict = I18N[appState.lang];
+  const song = getActiveBeatmap();
+  const diffCfg = DIFFICULTY_CONFIG[appState.level];
+  const instNames = {
+    ranat: appState.lang === 'th' ? 'ระนาดเอก' : 'Ranat Ek',
+    ching: appState.lang === 'th' ? 'ฉิ่ง' : 'Ching',
+    taphon: appState.lang === 'th' ? 'ตะโพน' : 'Taphon',
+    khlui: appState.lang === 'th' ? 'ขลุ่ยเพียงออ' : 'Khlui',
+  };
+  const handTag =
+    appState.oneHandMode || appState.instrument === 'khlui' || (appState.level === 1 && appState.instrument !== 'ching')
+      ? (appState.lang === 'th' ? ' • รองรับมือเดียว' : ' • 1-Hand Ready')
+      : '';
+  const prefix = appState.lang === 'th' ? 'พร้อมเล่น:' : 'Ready:';
+  el.quickStartSummary.textContent = `${prefix} ${instNames[appState.instrument]} • ${diffCfg.badge[appState.lang]} • ${song.title[appState.lang]}${handTag}`;
 }
 
 function updateGestureHint() {
@@ -998,10 +1094,49 @@ function renderTouchPad() {
 }
 
 // ============================================================================
-// Start, Restart, Exit & Summary Flows
+// Start, Restart, Exit & Summary Flows (With Slow-Load & Camera Error Recovery)
 // ============================================================================
+let activeLaunchToken = 0;
+let slowLoadTimer = null;
+
+function clearSlowLoadTimer() {
+  if (slowLoadTimer) {
+    clearTimeout(slowLoadTimer);
+    slowLoadTimer = null;
+  }
+  el.loadingSlowTip?.classList.add('hidden');
+}
+
+function describeCameraError(err) {
+  const name = err?.name || '';
+  if (appState.lang === 'th') {
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      return 'สิทธิ์กล้องถูกปฏิเสธ กรุณาอนุญาตกล้องที่แถบที่อยู่เบราว์เซอร์ หรือกดปุ่มด้านล่างเพื่อเล่นด้วยสัมผัส/คีย์บอร์ดทันที';
+    }
+    if (name === 'NotReadableError' || name === 'TrackStartError') {
+      return 'กล้องกำลังถูกใช้งานโดยแอปอื่น (เช่น Zoom/Meet) กรุณาปิดแอปอื่น หรือสลับไปเล่นด้วยสัมผัส/คีย์บอร์ดทันที';
+    }
+    if (name === 'NotFoundError') {
+      return 'ไม่พบกล้องเว็บแคมในอุปกรณ์นี้ คุณสามารถเล่นด้วยปุ่มสัมผัสหรือคีย์บอร์ดได้ทันที';
+    }
+    return I18N.th.cameraError;
+  }
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    return 'Camera permission was denied. Allow camera access in your browser address bar, or switch to Touch / Keyboard mode below.';
+  }
+  if (name === 'NotReadableError' || name === 'TrackStartError') {
+    return 'Your camera is busy in another app (e.g., Zoom/Meet). Close that app or switch to Touch / Keyboard mode below.';
+  }
+  if (name === 'NotFoundError') {
+    return 'No webcam was detected on this device. You can play right away with Touch or Keyboard mode.';
+  }
+  return I18N.en.cameraError;
+}
+
 async function launchGame({ useCamera }) {
-  el.setupError.classList.add('hidden');
+  const myToken = ++activeLaunchToken;
+  clearSlowLoadTimer();
+  el.setupErrorBox?.classList.add('hidden');
   appState.useCamera = useCamera;
 
   await audioEngine.init();
@@ -1019,21 +1154,41 @@ async function launchGame({ useCamera }) {
 
   if (useCamera) {
     el.overlayLoading.classList.remove('hidden');
+    // Show helpful slow-network tip after 5.5s so users are never stuck waiting
+    slowLoadTimer = setTimeout(() => {
+      if (myToken === activeLaunchToken) {
+        el.loadingSlowTip?.classList.remove('hidden');
+      }
+    }, 5500);
+
     try {
       await visionTracker.init(el.video, (status) => {
+        if (myToken !== activeLaunchToken) return;
         const dict = I18N[appState.lang];
         el.loadingDetail.textContent =
           status === 'loadingModel' ? dict.loadingModel : dict.loadingCamera;
       });
     } catch (err) {
+      clearSlowLoadTimer();
+      if (myToken !== activeLaunchToken) return;
       console.error('Camera / MediaPipe initialization failed:', err);
       el.overlayLoading.classList.add('hidden');
       showScreen('setup');
-      el.setupError.textContent = I18N[appState.lang].cameraError;
-      el.setupError.classList.remove('hidden');
+      el.setupError.textContent = describeCameraError(err);
+      el.setupErrorBox?.classList.remove('hidden');
+      return;
+    }
+
+    clearSlowLoadTimer();
+    // If user already switched to Touch/Keyboard or exited while loading, abort cleanly
+    if (myToken !== activeLaunchToken) {
+      visionTracker.stopCamera();
       return;
     }
     el.overlayLoading.classList.add('hidden');
+  } else {
+    el.overlayLoading.classList.add('hidden');
+    visionTracker.stopCamera();
   }
 
   const modeOffset = useCamera ? appState.latencyOffsets.camera : appState.latencyOffsets.keyboard;
@@ -1041,6 +1196,7 @@ async function launchGame({ useCamera }) {
     useCamera,
     landmarkIdx: appState.landmarkIdx,
     latencyOffsetMs: modeOffset,
+    oneHandMode: appState.oneHandMode,
   });
 }
 
@@ -1054,6 +1210,7 @@ function showSummaryScreen(result) {
 
   el.summaryGrade.textContent = result.grade;
   el.summaryGrade.className = `grade-medal grade-${result.grade}`;
+  el.summaryGrade.setAttribute('aria-label', appState.lang === 'th' ? `เกรด ${result.grade}` : `Grade ${result.grade}`);
   el.summaryFeedback.textContent = dict.gradeFeedback[result.grade];
 
   el.summaryScore.textContent = result.score.toLocaleString();
@@ -1071,9 +1228,18 @@ function showSummaryScreen(result) {
 
   showScreen('summary');
   renderDifficultyCards();
+
+  // Concise full spoken summary for screen-reader users
+  const summaryVoice =
+    appState.lang === 'th'
+      ? `จบเพลง ${beatmap.title.th} เกรด ${result.grade} คะแนน ${result.score} ความแม่นยำ ${result.accuracy} เปอร์เซ็นต์ ยอดเยี่ยม ${result.perfect} ดี ${result.good} พลาด ${result.miss}`
+      : `Finished ${beatmap.title.en}. Grade ${result.grade}, score ${result.score}, accuracy ${result.accuracy} percent. ${result.perfect} perfect, ${result.good} good, ${result.miss} miss.`;
+  announceSR(summaryVoice);
 }
 
 function exitToMenu() {
+  activeLaunchToken++;
+  clearSlowLoadTimer();
   gameEngine.stop();
   visionTracker.stopCamera();
   releaseWakeLock();
@@ -1164,6 +1330,7 @@ el.btnOpenLatency.addEventListener('click', () => {
   if (matchingBtn) selectModalCalibModeNode(matchingBtn);
 
   el.latencyResultText.textContent = '';
+  if (el.latencyExplainText) el.latencyExplainText.textContent = '';
   el.btnLatencyApply.classList.add('hidden');
   el.latencyTapLabel.textContent = I18N[appState.lang].latencyTapIdle;
   openModalDialog(el.modalLatency, el.btnOpenLatency);
@@ -1217,6 +1384,18 @@ el.btnSoundTest.addEventListener('click', async () => {
   }
 });
 
+el.btnQuickStartCam?.addEventListener('click', () => launchGame({ useCamera: true }));
+el.btnQuickStartTouch?.addEventListener('click', () => launchGame({ useCamera: false }));
+el.btnErrorFallbackTouch?.addEventListener('click', () => launchGame({ useCamera: false }));
+el.btnLoadingFallbackTouch?.addEventListener('click', () => launchGame({ useCamera: false }));
+el.btnLoadingCancel?.addEventListener('click', exitToMenu);
+el.btnCalibSwitchTouch?.addEventListener('click', () => launchGame({ useCamera: false }));
+
+el.toggleOneHand?.addEventListener('change', (e) => {
+  appState.oneHandMode = Boolean(e.target.checked);
+  updateQuickStartSummary();
+});
+
 el.btnStartCamera.addEventListener('click', () => launchGame({ useCamera: true }));
 el.btnStartKeyboard.addEventListener('click', () => launchGame({ useCamera: false }));
 
@@ -1234,6 +1413,7 @@ function restartCurrentSong() {
     useCamera: appState.useCamera,
     landmarkIdx: appState.landmarkIdx,
     latencyOffsetMs: modeOffset,
+    oneHandMode: appState.oneHandMode,
   });
 }
 el.btnRestartGame.addEventListener('click', restartCurrentSong);

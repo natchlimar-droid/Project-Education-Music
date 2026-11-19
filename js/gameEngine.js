@@ -24,6 +24,7 @@ export class RhythmGameEngine {
     this.rafId = null;
     this.lang = 'th';
     this.useCamera = true;
+    this.oneHandMode = false; // UDL inclusion: allows 1-hand readiness & play across levels
     this.landmarkIdx = 8; // 8 = Index Fingertip, 9 = Palm Center (Ranat UDL option)
     this.latencyOffsetMs = 0; // Compensates audio/camera/Bluetooth delay (±200ms)
 
@@ -107,7 +108,7 @@ export class RhythmGameEngine {
     this.viewH = rect.height;
   }
 
-  startSession(beatmap, { useCamera = true, landmarkIdx = 8, latencyOffsetMs = 0 } = {}) {
+  startSession(beatmap, { useCamera = true, landmarkIdx = 8, latencyOffsetMs = 0, oneHandMode = false } = {}) {
     this.stop();
     this.resize();
 
@@ -115,6 +116,7 @@ export class RhythmGameEngine {
     this.diffConfig = DIFFICULTY_CONFIG[beatmap.level];
     this.timeline = buildTimeline(beatmap);
     this.useCamera = useCamera;
+    this.oneHandMode = Boolean(oneHandMode);
     this.landmarkIdx = landmarkIdx;
     this.setLatencyOffsetMs(latencyOffsetMs);
 
@@ -244,7 +246,9 @@ export class RhythmGameEngine {
   _updateCalibration(dtSec) {
     const inst = this.beatmap.instrument;
     const isSingleHandFriendly =
-      inst === 'khlui' || (this.beatmap.level === 1 && (inst === 'ranat' || inst === 'taphon'));
+      this.oneHandMode ||
+      inst === 'khlui' ||
+      (this.beatmap.level === 1 && (inst === 'ranat' || inst === 'taphon'));
     const requiredHands = isSingleHandFriendly ? 1 : 2;
     const handsCount = this.vision.hands.length;
 
@@ -450,19 +454,25 @@ export class RhythmGameEngine {
       this.stats.score += basePts * this.stats.multiplier;
       if (judgement === 'perfect') this.stats.perfect += 1;
       else this.stats.good += 1;
+
+      if (this.stats.combo > 0 && this.stats.combo % 10 === 0) {
+        this.callbacks.onComboMilestone?.(this.stats.combo);
+      }
     } else {
       this.stats.combo = 0;
       this.stats.multiplier = 1;
       this.stats.miss += 1;
+      this.audio.playMissCue();
     }
 
     const pos = this._getNoteTargetScreenPos(note);
+    // Distinct non-color symbols (★ / ✓ / ✕) + clear text for UDL / colorblind accessibility
     const labelMap = {
-      perfect: this.lang === 'th' ? 'ยอดเยี่ยม!' : 'PERFECT!',
-      good: this.lang === 'th' ? 'ดี!' : 'GOOD',
+      perfect: this.lang === 'th' ? '★ ยอดเยี่ยม!' : '★ PERFECT!',
+      good: this.lang === 'th' ? '✓ ดี!' : '✓ GOOD',
       miss: wrongGesture
-        ? (this.lang === 'th' ? 'ผิดจังหวะ!' : 'WRONG!')
-        : (this.lang === 'th' ? 'พลาด' : 'MISS'),
+        ? (this.lang === 'th' ? '✕ ผิดจังหวะ!' : '✕ WRONG!')
+        : (this.lang === 'th' ? '✕ พลาด' : '✕ MISS'),
     };
     const colorMap = {
       perfect: '#f5d487',

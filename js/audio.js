@@ -496,6 +496,28 @@ export class ThaiAudioEngine {
   }
 
   /**
+   * Soft, non-harsh muted low wood cue when a note is missed (multi-sensory UDL feedback).
+   */
+  playMissCue() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(190, now);
+    osc.frequency.exponentialRampToValueAtTime(110, now + 0.12);
+
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(0.14, now + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0008, now + 0.13);
+
+    osc.connect(g);
+    g.connect(this.masterGain);
+    osc.start(now);
+    osc.stop(now + 0.15);
+  }
+
+  /**
    * Gentle completion arpeggio when a song ends.
    */
   playCompleteFanfare() {

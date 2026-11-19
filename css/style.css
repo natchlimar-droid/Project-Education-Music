@@ -1519,3 +1519,120 @@ body {
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
+
+/* ==========================================================================
+   UDL Inclusion, Quick Start Bar, Collapsible Sync & Screen-Reader Helpers
+   ========================================================================== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.quick-start-bar {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.quick-start-summary {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.error-panel {
+  background: var(--coral-dim);
+  border: 1px solid var(--coral);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.toggle-switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.94rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  min-height: 44px;
+}
+
+.toggle-switch-label input[type='checkbox'] {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--jade);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.bpm-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.song-check {
+  font-size: 0.9rem;
+  color: var(--gold);
+  font-weight: 800;
+}
+
+.latency-details {
+  padding: 16px 22px;
+}
+
+.latency-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.latency-summary::-webkit-details-marker {
+  display: none;
+}
+
+.latency-details[open] .latency-summary {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.slow-tip {
+  color: var(--gold-bright);
+  font-size: 0.9rem;
+}
+
+.latency-explain-text {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  min-height: 20px;
+}
+
+.spaced-actions {
+  gap: 14px;
+}
+
+.hud-right {
+  gap: 14px;
+}
