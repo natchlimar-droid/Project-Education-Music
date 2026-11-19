@@ -75,7 +75,7 @@ export class HandVisionTracker {
   /**
    * Initializes MediaPipe HandLandmarker via CDN and starts the 640x480 webcam stream.
    */
-  async init(videoElement, onStatus = () => {}) {
+  async init(videoElement, onStatus = () => { }) {
     this.videoEl = videoElement;
 
     if (!this.handLandmarker) {
