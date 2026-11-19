@@ -4,11 +4,11 @@
  * ============================================================================
  * - All note positions, hit judgements, and metronome cues are strictly synced
  *   to `audioEngine.getCurrentTime()` (`audioCtx.currentTime`). Never uses `setInterval`.
- * - Renders mirrored 640x480 webcam feed onto a responsive DPR-scaled Canvas.
- * - Supports both Ranat Ek (5 or 7 virtual wooden bars) and Ching (open/dampened).
+ * - Applies user-calibrated `latencyOffsetMs` (±200ms) when judging Perfect/Good hits.
+ * - Supports 4 Thai instruments: Ranat Ek, Ching, Taphon (Drum), and Khlui (Flute).
  */
 
-import { DIFFICULTY_CONFIG, buildTimeline } from './beatmaps.js';
+import { DIFFICULTY_CONFIG, TAPHON_ZONES, KHLUI_NOTES, buildTimeline } from './beatmaps.js';
 import { HAND_CONNECTIONS } from './vision.js';
 
 export class RhythmGameEngine {
@@ -24,20 +24,21 @@ export class RhythmGameEngine {
     this.rafId = null;
     this.lang = 'th';
     this.useCamera = true;
-    this.landmarkIdx = 8; // 8 = Index Fingertip, 9 = Palm Center (UDL option)
+    this.landmarkIdx = 8; // 8 = Index Fingertip, 9 = Palm Center (Ranat UDL option)
+    this.latencyOffsetMs = 0; // Compensates audio/camera/Bluetooth delay (±200ms)
 
     // Active song & difficulty config
     this.beatmap = null;
     this.diffConfig = null;
     this.timeline = null;
-    this.keys = [];
+    this.lanes = []; // Active lane metadata (Ranat keys, Taphon zones, or Khlui notes)
 
     // Audio-clock timing state
     this.songStartTime = 0;
     this.pauseStartedAudioTime = 0;
     this.nextMetronomeBeat = 0;
 
-    // Calibration state (3-second readiness check)
+    // Calibration readiness check state (3 seconds)
     this.calibHoldSec = 0;
     this.calibRequiredSec = 3.0;
     this.lastFramePerfMs = 0;
@@ -45,21 +46,21 @@ export class RhythmGameEngine {
     // Scoring & progression stats
     this.stats = this._freshStats();
 
-    // Visual feedback state (key glow timers, floating hit texts, particles)
+    // Visual feedback state
     this.laneGlow = [];
     this.chingRingGlow = { intensity: 0, color: '#dfb258' };
+    this.activeFingerCount = 0;
     this.floatingTexts = [];
     this.particles = [];
 
-    // Virtual Ranat Ek bar layout in normalized [0..1] canvas coordinates
-    this.ranatBounds = {
+    // Virtual instrument hitbox layout in normalized [0..1] canvas coords
+    this.barBounds = {
       leftX: 0.05,
       rightX: 0.95,
       topY: 0.72,
       bottomY: 0.94,
     };
 
-    // Resize observer for crisp responsive canvas
     this._handleResize = this.resize.bind(this);
     window.addEventListener('resize', this._handleResize);
   }
@@ -84,6 +85,11 @@ export class RhythmGameEngine {
     this.landmarkIdx = Number(idx) === 9 ? 9 : 8;
   }
 
+  setLatencyOffsetMs(ms) {
+    const val = Number(ms);
+    this.latencyOffsetMs = Number.isFinite(val) ? Math.max(-200, Math.min(200, val)) : 0;
+  }
+
   resize() {
     const parent = this.canvas.parentElement;
     if (!parent) return;
@@ -96,23 +102,26 @@ export class RhythmGameEngine {
     this.viewH = rect.height;
   }
 
-  /**
-   * Prepares a new session for the selected beatmap and enters Calibration (or Playing in keyboard mode).
-   */
-  startSession(beatmap, { useCamera = true, landmarkIdx = 8 } = {}) {
+  startSession(beatmap, { useCamera = true, landmarkIdx = 8, latencyOffsetMs = 0 } = {}) {
     this.stop();
     this.resize();
 
     this.beatmap = beatmap;
     this.diffConfig = DIFFICULTY_CONFIG[beatmap.level];
     this.timeline = buildTimeline(beatmap);
-    this.keys = this.diffConfig.ranatKeys;
     this.useCamera = useCamera;
     this.landmarkIdx = landmarkIdx;
+    this.setLatencyOffsetMs(latencyOffsetMs);
+
+    if (beatmap.instrument === 'ranat') this.lanes = this.diffConfig.ranatKeys;
+    else if (beatmap.instrument === 'taphon') this.lanes = TAPHON_ZONES;
+    else if (beatmap.instrument === 'khlui') this.lanes = KHLUI_NOTES;
+    else this.lanes = [];
 
     this.stats = this._freshStats();
-    this.laneGlow = new Array(this.keys.length).fill(0);
+    this.laneGlow = new Array(Math.max(1, this.lanes.length)).fill(0);
     this.chingRingGlow = { intensity: 0, color: '#dfb258' };
+    this.activeFingerCount = 0;
     this.floatingTexts = [];
     this.particles = [];
     this.calibHoldSec = 0;
@@ -132,9 +141,6 @@ export class RhythmGameEngine {
     this.rafId = requestAnimationFrame((t) => this._loop(t));
   }
 
-  /**
-   * Transitions from Calibration into active audio-synced gameplay.
-   */
   beginSongPlayback() {
     this.state = 'playing';
     this.songStartTime = this.audio.getCurrentTime();
@@ -152,7 +158,6 @@ export class RhythmGameEngine {
 
   resume() {
     if (this.state !== 'paused') return;
-    // Shift songStartTime forward by exact pause duration so audio sync never drifts
     const pausedDuration = this.audio.getCurrentTime() - this.pauseStartedAudioTime;
     this.songStartTime += pausedDuration;
     this.state = 'playing';
@@ -169,46 +174,51 @@ export class RhythmGameEngine {
   }
 
   /**
-   * Keyboard fallback / accessibility input handler.
+   * Accessible Keyboard Play Mode input handler.
    */
   handleKeyInput(keyLower) {
     if (this.state !== 'playing') return;
+    const nowAudio = this.audio.getCurrentTime();
 
     if (this.beatmap.instrument === 'ranat') {
-      const laneIdx = this.keys.findIndex((k) => k.keyHint.toLowerCase() === keyLower);
+      const laneIdx = this.lanes.findIndex((k) => k.keyHint.toLowerCase() === keyLower);
+      if (laneIdx !== -1) this._processLaneStrike(laneIdx, nowAudio, 0.9);
+    } else if (this.beatmap.instrument === 'taphon') {
+      const laneIdx = this.lanes.findIndex((z) => z.keyHint.toLowerCase() === keyLower);
+      if (laneIdx !== -1) this._processLaneStrike(laneIdx, nowAudio, 0.9);
+    } else if (this.beatmap.instrument === 'khlui') {
+      const laneIdx = this.lanes.findIndex((n) => n.keyHint.toLowerCase() === keyLower);
       if (laneIdx !== -1) {
-        this._processRanatStrike(laneIdx, this.audio.getCurrentTime(), 0.9);
+        this.activeFingerCount = laneIdx + 1;
+        this._processLaneStrike(laneIdx, nowAudio, 0.9);
       }
     } else if (this.beatmap.instrument === 'ching') {
       if (keyLower === 'c' || keyLower === ' ') {
-        this._processChingAction('ching', this.audio.getCurrentTime());
+        this._processChingAction('ching', nowAudio);
       } else if (keyLower === 'v' || keyLower === 'enter') {
-        this._processChingAction('chab', this.audio.getCurrentTime());
+        this._processChingAction('chab', nowAudio);
       }
     }
   }
 
   // ==========================================================================
-  // Main Animation Loop (requestAnimationFrame)
+  // Main Loop (requestAnimationFrame)
   // ==========================================================================
   _loop(nowMs) {
     const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - this.lastFramePerfMs) / 1000));
     this.lastFramePerfMs = nowMs;
 
-    // 1. Run MediaPipe hand tracking if camera is active
     if (this.useCamera && this.vision.isReady) {
       this.vision.detect(nowMs);
     }
 
-    // 2. Update game logic based on state
     if (this.state === 'calibrating') {
       this._updateCalibration(dtSec);
     } else if (this.state === 'playing') {
       this._updateGameplay(nowMs, dtSec);
     }
 
-    // 3. Render current frame
-    this._render(dtSec);
+    this._render();
 
     if (this.state !== 'idle' && this.state !== 'finished') {
       this.rafId = requestAnimationFrame((t) => this._loop(t));
@@ -216,14 +226,15 @@ export class RhythmGameEngine {
   }
 
   // ==========================================================================
-  // 3-Second Hand Calibration Readiness Check
+  // 3-Second Hand Readiness Check (1 hand for Khlui, 2 hands for others)
   // ==========================================================================
   _updateCalibration(dtSec) {
+    const requiredHands = this.beatmap.instrument === 'khlui' ? 1 : 2;
     const handsCount = this.vision.hands.length;
-    if (handsCount >= 2) {
+
+    if (handsCount >= requiredHands) {
       this.calibHoldSec = Math.min(this.calibRequiredSec, this.calibHoldSec + dtSec);
     } else {
-      // Smooth decay rather than jarring instant reset for seniors/children
       this.calibHoldSec = Math.max(0, this.calibHoldSec - dtSec * 1.5);
     }
 
@@ -232,6 +243,7 @@ export class RhythmGameEngine {
 
     this.callbacks.onCalibrationUpdate?.({
       handsCount,
+      requiredHands,
       progress,
       secondsLeft,
     });
@@ -249,7 +261,7 @@ export class RhythmGameEngine {
     const audioNow = this.audio.getCurrentTime();
     const songTime = audioNow - this.songStartTime;
 
-    // 1. Schedule subtle Web Audio metronome clicks (lookahead 120ms)
+    // 1. Schedule Web Audio metronome clicks (120ms lookahead)
     const lookaheadTime = songTime + 0.12;
     const totalBeats = Math.floor(this.timeline.totalDuration / this.timeline.secPerBeat);
     while (
@@ -264,16 +276,37 @@ export class RhythmGameEngine {
 
     // 2. Process real-time webcam gestures
     if (this.useCamera && this.vision.isReady) {
-      if (this.beatmap.instrument === 'ranat') {
-        const barBounds = {
-          ...this.ranatBounds,
-          laneCount: this.keys.length,
-        };
-        const strikes = this.vision.evaluateRanatStrikes(nowMs, this.landmarkIdx, barBounds);
-        for (const strike of strikes) {
-          this._processRanatStrike(strike.lane, audioNow, strike.velocity);
+      const inst = this.beatmap.instrument;
+      if (inst === 'ranat') {
+        const bounds = { ...this.barBounds, laneCount: this.lanes.length };
+        const strikes = this.vision.evaluateRanatStrikes(nowMs, this.landmarkIdx, bounds);
+        for (const s of strikes) {
+          this._processLaneStrike(s.lane, audioNow, s.velocity);
         }
-      } else {
+      } else if (inst === 'taphon') {
+        const bounds = { ...this.barBounds, laneCount: this.lanes.length };
+        const strikes = this.vision.evaluateTaphonStrikes(nowMs, bounds);
+        for (const s of strikes) {
+          this._processLaneStrike(s.lane, audioNow, s.velocity);
+        }
+      } else if (inst === 'khlui') {
+        const { fingerCount, triggeredLane } = this.vision.evaluateKhluiFingers(nowMs);
+        this.activeFingerCount = fingerCount;
+        if (triggeredLane !== -1) {
+          this._processLaneStrike(triggeredLane, audioNow, 0.9);
+        } else if (fingerCount >= 1 && fingerCount <= 5) {
+          // Allow holding the matching finger pose as a note reaches the Perfect window
+          const lane = fingerCount - 1;
+          const adjustedSongTime = songTime - this.latencyOffsetMs / 1000;
+          const perfectWin = this.diffConfig.timingWindows.perfect;
+          const readyNote = this.timeline.notes.find(
+            (n) => n.status === 'pending' && n.lane === lane && Math.abs(adjustedSongTime - n.time) <= perfectWin * 0.75
+          );
+          if (readyNote) {
+            this._processLaneStrike(lane, audioNow, 0.9);
+          }
+        }
+      } else if (inst === 'ching') {
         const gesture = this.vision.evaluateChingGesture(nowMs, audioNow);
         if (gesture) {
           this._processChingAction(gesture.type, gesture.impactAudioTime);
@@ -281,10 +314,11 @@ export class RhythmGameEngine {
       }
     }
 
-    // 3. Auto-miss notes that have passed beyond the Good timing window
+    // 3. Auto-miss notes past the Good timing window (compensated by latencyOffsetMs)
     const goodWin = this.diffConfig.timingWindows.good;
+    const adjustedSongTime = songTime - this.latencyOffsetMs / 1000;
     for (const note of this.timeline.notes) {
-      if (note.status === 'pending' && songTime - note.time > goodWin) {
+      if (note.status === 'pending' && adjustedSongTime - note.time > goodWin) {
         note.status = 'miss';
         this._recordJudgement('miss', note);
       }
@@ -297,7 +331,7 @@ export class RhythmGameEngine {
     this.chingRingGlow.intensity = Math.max(0, this.chingRingGlow.intensity - dtSec * 3.5);
     this._updateEffects(dtSec);
 
-    // 5. Update HUD & check song completion
+    // 5. Update HUD & check song end
     const progressPct = Math.min(100, Math.max(0, (songTime / this.timeline.totalDuration) * 100));
     this._emitHud(progressPct);
 
@@ -307,26 +341,33 @@ export class RhythmGameEngine {
   }
 
   // ==========================================================================
-  // Hit Judgement Math (Ranat Ek & Ching)
+  // Hit Judgement Math (Compensated by Latency Offset)
   // ==========================================================================
-  _processRanatStrike(laneIdx, impactAudioTime, velocity = 0.9) {
-    const key = this.keys[laneIdx];
-    if (!key) return;
+  _processLaneStrike(laneIdx, impactAudioTime, velocity = 0.9) {
+    const laneMeta = this.lanes[laneIdx];
+    if (!laneMeta) return;
 
-    // Immediate acoustic & visual feedback
-    this.audio.playRanat(key.freq, key.id, velocity);
+    // Immediate synthesized instrument feedback
+    const inst = this.beatmap.instrument;
+    if (inst === 'ranat') {
+      this.audio.playRanat(laneMeta.freq, laneMeta.id, velocity);
+    } else if (inst === 'taphon') {
+      this.audio.playTaphon(laneMeta.id, velocity);
+    } else if (inst === 'khlui') {
+      this.audio.playKhlui(laneMeta.freq, 0.45);
+    }
     this.laneGlow[laneIdx] = 1.0;
 
-    const songTime = impactAudioTime - this.songStartTime;
+    // Subtract user-calibrated latency offset (ms -> sec) before judging
+    const adjustedSongTime = impactAudioTime - this.songStartTime - this.latencyOffsetMs / 1000;
     const { perfect, good } = this.diffConfig.timingWindows;
 
-    // Find closest pending note in this lane within the Good window
     let bestNote = null;
     let bestDelta = Infinity;
 
     for (const note of this.timeline.notes) {
       if (note.status !== 'pending' || note.lane !== laneIdx) continue;
-      const delta = Math.abs(songTime - note.time);
+      const delta = Math.abs(adjustedSongTime - note.time);
       if (delta <= good && delta < bestDelta) {
         bestDelta = delta;
         bestNote = note;
@@ -341,7 +382,6 @@ export class RhythmGameEngine {
   }
 
   _processChingAction(actionType, impactAudioTime) {
-    // Immediate acoustic & visual feedback
     if (actionType === 'ching') {
       this.audio.playChing();
       this.chingRingGlow = { intensity: 1.0, color: '#dfb258' };
@@ -350,16 +390,15 @@ export class RhythmGameEngine {
       this.chingRingGlow = { intensity: 1.0, color: '#e87458' };
     }
 
-    const songTime = impactAudioTime - this.songStartTime;
+    const adjustedSongTime = impactAudioTime - this.songStartTime - this.latencyOffsetMs / 1000;
     const { perfect, good } = this.diffConfig.timingWindows;
 
-    // Match closest pending note within Good window
     let bestNote = null;
     let bestDelta = Infinity;
 
     for (const note of this.timeline.notes) {
       if (note.status !== 'pending') continue;
-      const delta = Math.abs(songTime - note.time);
+      const delta = Math.abs(adjustedSongTime - note.time);
       if (delta <= good && delta < bestDelta) {
         bestDelta = delta;
         bestNote = note;
@@ -372,7 +411,6 @@ export class RhythmGameEngine {
         bestNote.status = judgement;
         this._recordJudgement(judgement, bestNote);
       } else {
-        // Right time, wrong articulation (e.g., played Chab on a Ching note)
         bestNote.status = 'miss';
         this._recordJudgement('miss', bestNote, true);
       }
@@ -384,7 +422,6 @@ export class RhythmGameEngine {
       this.stats.combo += 1;
       this.stats.maxCombo = Math.max(this.stats.maxCombo, this.stats.combo);
 
-      // Level 3 Combo Multiplier (x2 at 10+ streak, x4 at 25+ streak)
       if (this.diffConfig.comboMultiplier) {
         if (this.stats.combo >= 25) this.stats.multiplier = 4;
         else if (this.stats.combo >= 10) this.stats.multiplier = 2;
@@ -403,7 +440,6 @@ export class RhythmGameEngine {
       this.stats.miss += 1;
     }
 
-    // Spawn floating feedback text & particles at target position
     const pos = this._getNoteTargetScreenPos(note);
     const labelMap = {
       perfect: this.lang === 'th' ? 'ยอดเยี่ยม!' : 'PERFECT!',
@@ -433,19 +469,16 @@ export class RhythmGameEngine {
   }
 
   _getNoteTargetScreenPos(note) {
-    if (this.beatmap.instrument === 'ranat') {
-      const leftPx = this.ranatBounds.leftX * this.viewW;
-      const widthPx = (this.ranatBounds.rightX - this.ranatBounds.leftX) * this.viewW;
-      const laneW = widthPx / this.keys.length;
+    if (this.beatmap.instrument !== 'ching') {
+      const leftPx = this.barBounds.leftX * this.viewW;
+      const widthPx = (this.barBounds.rightX - this.barBounds.leftX) * this.viewW;
+      const laneW = widthPx / this.lanes.length;
       return {
         x: leftPx + (note.lane + 0.5) * laneW,
-        y: this.ranatBounds.topY * this.viewH,
+        y: this.barBounds.topY * this.viewH,
       };
     }
-    return {
-      x: this.viewW * 0.5,
-      y: this.viewH * 0.76,
-    };
+    return { x: this.viewW * 0.5, y: this.viewH * 0.76 };
   }
 
   _spawnHitParticles(x, y, color, count) {
@@ -529,11 +562,8 @@ export class RhythmGameEngine {
     if (!w || !h) return;
 
     ctx.clearRect(0, 0, w, h);
-
-    // 1. Mirrored Webcam Feed (or dark lacquer stage in keyboard mode)
     this._drawMirroredBackground(ctx, w, h);
 
-    // 2. Instrument-specific Stage & Falling Notes
     const songTime =
       this.state === 'playing'
         ? this.audio.getCurrentTime() - this.songStartTime
@@ -541,18 +571,16 @@ export class RhythmGameEngine {
           ? this.pauseStartedAudioTime - this.songStartTime
           : -1;
 
-    if (this.beatmap.instrument === 'ranat') {
-      this._drawRanatStage(ctx, w, h, songTime);
-    } else {
+    if (this.beatmap.instrument === 'ching') {
       this._drawChingStage(ctx, w, h, songTime);
+    } else {
+      this._drawLaneInstrumentStage(ctx, w, h, songTime);
     }
 
-    // 3. Hand Landmarks & Active Cursors
     if (this.useCamera && this.vision.hands.length > 0) {
       this._drawHands(ctx, w, h);
     }
 
-    // 4. Hit Particles & Floating Judgement Popups
     this._drawEffects(ctx);
   }
 
@@ -566,14 +594,12 @@ export class RhythmGameEngine {
       const offsetX = (w - drawW) / 2;
       const offsetY = (h - drawH) / 2;
 
-      // Mirror horizontally using ctx.scale(-1, 1)
       ctx.save();
       ctx.translate(w, 0);
       ctx.scale(-1, 1);
       ctx.drawImage(this.videoEl, offsetX, offsetY, drawW, drawH);
       ctx.restore();
 
-      // Subtle dark scrim for UDL high-contrast readability
       ctx.fillStyle = 'rgba(14, 11, 19, 0.56)';
       ctx.fillRect(0, 0, w, h);
     } else {
@@ -586,35 +612,40 @@ export class RhythmGameEngine {
   }
 
   // --------------------------------------------------------------------------
-  // Ranat Ek Stage & Falling Notes
+  // Unified Multi-Lane Stage for Ranat Ek, Taphon (Drum), and Khlui (Flute)
   // --------------------------------------------------------------------------
-  _drawRanatStage(ctx, w, h, songTime) {
-    const leftPx = this.ranatBounds.leftX * w;
-    const rightPx = this.ranatBounds.rightX * w;
-    const topPx = this.ranatBounds.topY * h;
-    const bottomPx = this.ranatBounds.bottomY * h;
+  _drawLaneInstrumentStage(ctx, w, h, songTime) {
+    const inst = this.beatmap.instrument;
+    const leftPx = this.barBounds.leftX * w;
+    const rightPx = this.barBounds.rightX * w;
+    const topPx = this.barBounds.topY * h;
+    const bottomPx = this.barBounds.bottomY * h;
     const barH = bottomPx - topPx;
-    const laneCount = this.keys.length;
+    const laneCount = this.lanes.length;
     const laneW = (rightPx - leftPx) / laneCount;
     const gap = Math.max(6, laneW * 0.06);
 
-    // Identify next upcoming note(s) for Level 1 Visual Aid
+    // Level 1 visual aid highlight
     const nextLanes = new Set();
     if (this.diffConfig.visualAid && songTime >= 0) {
       const nextNote = this.timeline.notes.find((n) => n.status === 'pending' && n.time >= songTime - 0.1);
-      if (nextNote && nextNote.time - songTime < 1.8) {
-        nextLanes.add(nextNote.lane);
-      }
+      if (nextNote && nextNote.time - songTime < 1.8) nextLanes.add(nextNote.lane);
     }
 
-    // Draw subtle vertical lane guides
+    // Vertical lane guides
     for (let i = 0; i < laneCount; i++) {
       const lx = leftPx + i * laneW;
-      ctx.fillStyle = nextLanes.has(i) ? 'rgba(223, 178, 88, 0.09)' : 'rgba(255, 255, 255, 0.025)';
+      const isFingerActive = inst === 'khlui' && this.activeFingerCount === i + 1;
+      ctx.fillStyle =
+        isFingerActive
+          ? 'rgba(76, 194, 168, 0.14)'
+          : nextLanes.has(i)
+            ? 'rgba(223, 178, 88, 0.09)'
+            : 'rgba(255, 255, 255, 0.025)';
       ctx.fillRect(lx + gap / 2, 0, laneW - gap, topPx);
     }
 
-    // Strike target line (glowing gold horizon)
+    // Target strike horizon
     ctx.strokeStyle = 'rgba(223, 178, 88, 0.65)';
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -622,14 +653,13 @@ export class RhythmGameEngine {
     ctx.lineTo(rightPx, topPx);
     ctx.stroke();
 
-    // Draw falling notes + chord connectors
+    // Falling notes + simultaneous chord connectors
     if (songTime >= 0) {
       const fallDur = this.diffConfig.fallDuration;
       const visibleNotes = this.timeline.notes.filter(
         (n) => n.status === 'pending' && n.time - songTime <= fallDur && n.time - songTime >= -0.3
       );
 
-      // Draw golden connector bar between simultaneous two-hand chords (ตีคู่)
       const byBeat = new Map();
       for (const n of visibleNotes) {
         if (!n.chord) continue;
@@ -650,94 +680,134 @@ export class RhythmGameEngine {
         }
       }
 
-      // Draw individual note blocks
       for (const note of visibleNotes) {
-        const key = this.keys[note.lane];
+        const meta = this.lanes[note.lane];
         const progress = 1 - (note.time - songTime) / fallDur;
         const ny = progress * topPx;
         const nx = leftPx + note.lane * laneW + gap;
         const nw = laneW - gap * 2;
-        const nh = Math.min(40, Math.max(26, h * 0.055));
+        const nh = Math.min(42, Math.max(26, h * 0.056));
 
         ctx.save();
-        ctx.fillStyle = key.color;
-        ctx.shadowColor = key.color;
+        ctx.fillStyle = meta.color;
+        ctx.shadowColor = meta.color;
         ctx.shadowBlur = note.chord ? 18 : 10;
-        this._roundRect(ctx, nx, ny - nh / 2, nw, nh, 10);
+        this._roundRect(ctx, nx, ny - nh / 2, nw, nh, inst === 'khlui' ? 20 : 10);
         ctx.fill();
 
-        // Crisp border & Thai solfege label inside falling note
         ctx.shadowBlur = 0;
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = note.chord ? 2.5 : 1.2;
         ctx.stroke();
 
         ctx.fillStyle = '#15100a';
-        ctx.font = `800 ${Math.round(nh * 0.56)}px "Noto Sans Thai", sans-serif`;
+        ctx.font = `800 ${Math.round(nh * 0.52)}px "Sarabun", "Noto Sans Thai", sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(this.lang === 'th' ? key.th : key.en, nx + nw / 2, ny + 1);
+        const noteText =
+          inst === 'khlui'
+            ? `${meta.fingers} • ${this.lang === 'th' ? meta.th : meta.en}`
+            : this.lang === 'th'
+              ? meta.th
+              : meta.en;
+        ctx.fillText(noteText, nx + nw / 2, ny + 1);
         ctx.restore();
       }
     }
 
-    // Draw Virtual Wooden Ranat Ek Bars
-    // Connecting binding cords (เชือกร้อยผืนระนาด)
-    ctx.strokeStyle = 'rgba(223, 178, 88, 0.45)';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(leftPx + 12, topPx + barH * 0.25);
-    ctx.lineTo(rightPx - 12, topPx + barH * 0.25);
-    ctx.moveTo(leftPx + 12, topPx + barH * 0.75);
-    ctx.lineTo(rightPx - 12, topPx + barH * 0.75);
-    ctx.stroke();
+    // Instrument-specific lower pads (Ranat wood bars / Taphon drumhead / Khlui finger holes)
+    if (inst === 'ranat') {
+      ctx.strokeStyle = 'rgba(223, 178, 88, 0.45)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(leftPx + 12, topPx + barH * 0.25);
+      ctx.lineTo(rightPx - 12, topPx + barH * 0.25);
+      ctx.moveTo(leftPx + 12, topPx + barH * 0.75);
+      ctx.lineTo(rightPx - 12, topPx + barH * 0.75);
+      ctx.stroke();
+    }
 
     for (let i = 0; i < laneCount; i++) {
-      const key = this.keys[i];
+      const meta = this.lanes[i];
       const glow = this.laneGlow[i] || 0;
       const isAided = nextLanes.has(i);
+      const isFingerHeld = inst === 'khlui' && this.activeFingerCount === i + 1;
       const bx = leftPx + i * laneW + gap / 2;
       const bw = laneW - gap;
 
       ctx.save();
-      // Teakwood bar gradient
-      const barGrad = ctx.createLinearGradient(bx, topPx, bx, bottomPx);
-      if (glow > 0.05) {
-        barGrad.addColorStop(0, key.color);
-        barGrad.addColorStop(1, '#5d3e1e');
+      const padGrad = ctx.createLinearGradient(bx, topPx, bx, bottomPx);
+      if (glow > 0.05 || isFingerHeld) {
+        padGrad.addColorStop(0, meta.color);
+        padGrad.addColorStop(1, '#3c2a18');
+      } else if (inst === 'taphon') {
+        padGrad.addColorStop(0, meta.zoneType === 'head' ? '#523424' : '#2a2b3a');
+        padGrad.addColorStop(1, '#1d161b');
+      } else if (inst === 'khlui') {
+        padGrad.addColorStop(0, '#3e4228');
+        padGrad.addColorStop(1, '#1f2316');
       } else {
-        barGrad.addColorStop(0, '#5a3a22');
-        barGrad.addColorStop(0.5, '#422918');
-        barGrad.addColorStop(1, '#2b1a0f');
+        padGrad.addColorStop(0, '#5a3a22');
+        padGrad.addColorStop(0.5, '#422918');
+        padGrad.addColorStop(1, '#2b1a0f');
       }
 
-      if (glow > 0.05 || isAided) {
-        ctx.shadowColor = key.color;
+      if (glow > 0.05 || isAided || isFingerHeld) {
+        ctx.shadowColor = meta.color;
         ctx.shadowBlur = glow > 0.05 ? 26 * glow : 16;
       }
 
-      ctx.fillStyle = barGrad;
-      this._roundRect(ctx, bx, topPx, bw, barH, 12);
+      ctx.fillStyle = padGrad;
+      this._roundRect(ctx, bx, topPx, bw, barH, inst === 'taphon' ? 18 : 12);
       ctx.fill();
 
-      // Colored accent border
       ctx.shadowBlur = 0;
-      ctx.lineWidth = glow > 0.05 || isAided ? 3.5 : 2;
-      ctx.strokeStyle = glow > 0.05 || isAided ? key.color : 'rgba(223, 178, 88, 0.35)';
+      ctx.lineWidth = glow > 0.05 || isAided || isFingerHeld ? 3.5 : 2;
+      ctx.strokeStyle = glow > 0.05 || isAided || isFingerHeld ? meta.color : 'rgba(223, 178, 88, 0.35)';
       ctx.stroke();
 
-      // Thai solfege note label (large & legible for all ages)
-      ctx.fillStyle = glow > 0.3 ? '#140e07' : '#f7f2e8';
-      ctx.font = `700 ${Math.min(34, Math.max(20, bw * 0.3))}px "Noto Sans Thai", sans-serif`;
+      ctx.fillStyle = glow > 0.3 || isFingerHeld ? '#140e07' : '#f7f2e8';
+      ctx.font = `700 ${Math.min(32, Math.max(19, bw * 0.25))}px "Sarabun", "Noto Sans Thai", sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(key.th, bx + bw / 2, topPx + barH * 0.44);
+      ctx.fillText(meta.th, bx + bw / 2, topPx + barH * 0.42);
 
-      // Secondary English solfege + keyboard hint
-      ctx.fillStyle = glow > 0.3 ? '#241a0d' : 'rgba(247, 242, 232, 0.72)';
-      ctx.font = '600 13px "Plus Jakarta Sans", sans-serif';
-      const subLabel = this.useCamera ? key.en : `${key.en} [${key.keyHint}]`;
-      ctx.fillText(subLabel, bx + bw / 2, topPx + barH * 0.76);
+      ctx.fillStyle = glow > 0.3 || isFingerHeld ? '#241a0d' : 'rgba(247, 242, 232, 0.78)';
+      ctx.font = '600 13px sans-serif';
+      let subLabel = meta.en;
+      if (inst === 'khlui') {
+        const fLabel = this.lang === 'th' ? `${meta.fingers} นิ้ว` : `${meta.fingers}F`;
+        subLabel = this.useCamera ? `${fLabel} (${meta.en})` : `${meta.en} [${meta.keyHint}]`;
+      } else if (!this.useCamera) {
+        subLabel = `${meta.en} [${meta.keyHint}]`;
+      }
+      ctx.fillText(subLabel, bx + bw / 2, topPx + barH * 0.75);
+      ctx.restore();
+    }
+
+    // Live Khlui finger-count badge on stage
+    if (inst === 'khlui' && this.useCamera) {
+      ctx.save();
+      const badgeW = 156;
+      const badgeH = 42;
+      const bx = w - badgeW - 18;
+      const by = 56;
+      ctx.fillStyle = 'rgba(17, 15, 21, 0.84)';
+      this._roundRect(ctx, bx, by, badgeW, badgeH, 12);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(76, 194, 168, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#4cc2a8';
+      ctx.font = '700 15px "Sarabun", "Noto Sans Thai", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const label =
+        this.lang === 'th'
+          ? `นิ้วที่ชู: ${this.activeFingerCount} นิ้ว`
+          : `Fingers Up: ${this.activeFingerCount}`;
+      ctx.fillText(label, bx + badgeW / 2, by + badgeH / 2);
       ctx.restore();
     }
   }
@@ -750,7 +820,6 @@ export class RhythmGameEngine {
     const targetY = h * 0.76;
     const ringRadius = Math.min(58, Math.max(40, h * 0.085));
 
-    // Central rhythm guide track
     ctx.strokeStyle = 'rgba(223, 178, 88, 0.22)';
     ctx.lineWidth = 2;
     ctx.setLineDash([8, 8]);
@@ -760,7 +829,6 @@ export class RhythmGameEngine {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Target strike ring
     ctx.save();
     if (this.chingRingGlow.intensity > 0.02) {
       ctx.shadowColor = this.chingRingGlow.color;
@@ -780,13 +848,12 @@ export class RhythmGameEngine {
 
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(247, 242, 232, 0.75)';
-    ctx.font = '600 14px "Noto Sans Thai", sans-serif';
+    ctx.font = '600 14px "Sarabun", "Noto Sans Thai", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(this.lang === 'th' ? 'จังหวะ' : 'STRIKE', cx, targetY);
     ctx.restore();
 
-    // Falling Ching (Open) & Chab (Dampened) notes
     if (songTime >= 0) {
       const fallDur = this.diffConfig.fallDuration;
       const visibleNotes = this.timeline.notes.filter(
@@ -801,7 +868,6 @@ export class RhythmGameEngine {
 
         ctx.save();
         if (isChing) {
-          // CHING (Open): Radiant Golden Hollow Ring
           ctx.shadowColor = '#dfb258';
           ctx.shadowBlur = 16;
           ctx.beginPath();
@@ -814,12 +880,11 @@ export class RhythmGameEngine {
 
           ctx.shadowBlur = 0;
           ctx.fillStyle = '#f5d487';
-          ctx.font = '800 20px "Noto Sans Thai", sans-serif';
+          ctx.font = '800 20px "Sarabun", "Noto Sans Thai", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(this.lang === 'th' ? 'ฉิ่ง' : 'CHING', cx, ny);
         } else {
-          // CHAB (Dampened): Solid Lotus-Coral Filled Disc
           ctx.shadowColor = '#e87458';
           ctx.shadowBlur = 16;
           ctx.beginPath();
@@ -832,7 +897,7 @@ export class RhythmGameEngine {
 
           ctx.shadowBlur = 0;
           ctx.fillStyle = '#1b0b07';
-          ctx.font = '800 20px "Noto Sans Thai", sans-serif';
+          ctx.font = '800 20px "Sarabun", "Noto Sans Thai", sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(this.lang === 'th' ? 'ฉับ' : 'CHAB', cx, ny);
@@ -841,7 +906,6 @@ export class RhythmGameEngine {
       }
     }
 
-    // Live Scale-Normalized Palm Connection & Hold-Progress Indicator
     if (this.useCamera && this.vision.hands.length >= 2) {
       const p1 = this.vision.hands[0].palmCenter;
       const p2 = this.vision.hands[1].palmCenter;
@@ -855,7 +919,6 @@ export class RhythmGameEngine {
       ctx.lineTo(p2.x * w, p2.y * h);
       ctx.stroke();
 
-      // Hold progress ring around palm midpoint when hands are closed (Ching -> Chab)
       if (cs.palmMidpoint && cs.holdProgress > 0) {
         const mx = cs.palmMidpoint.x * w;
         const my = cs.palmMidpoint.y * h;
@@ -869,14 +932,11 @@ export class RhythmGameEngine {
     }
   }
 
-  // --------------------------------------------------------------------------
-  // Hand Skeleton & Active Pointer Rendering
-  // --------------------------------------------------------------------------
   _drawHands(ctx, w, h) {
+    const inst = this.beatmap.instrument;
     for (const hand of this.vision.hands) {
       const pts = hand.landmarks;
 
-      // Subtle translucent hand skeleton
       ctx.save();
       ctx.strokeStyle = 'rgba(245, 212, 135, 0.38)';
       ctx.lineWidth = 2;
@@ -887,21 +947,19 @@ export class RhythmGameEngine {
         ctx.stroke();
       }
 
-      // Highlight active tracking point (Ranat: Index 8 or Palm 9; Ching: Palm 9)
-      const activePt =
-        this.beatmap.instrument === 'ching'
-          ? hand.palmCenter
-          : this.landmarkIdx === 9
-            ? hand.palmCenter
-            : hand.indexTip;
+      // Highlight the active tracking landmark per instrument
+      let activePt = hand.indexTip;
+      if (inst === 'ching' || inst === 'khlui') activePt = hand.palmCenter;
+      else if (inst === 'taphon') activePt = hand.wrist;
+      else if (this.landmarkIdx === 9) activePt = hand.palmCenter;
 
       const px = activePt.x * w;
       const py = activePt.y * h;
 
       ctx.beginPath();
       ctx.arc(px, py, 12, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(245, 212, 135, 0.9)';
-      ctx.shadowColor = '#f5d487';
+      ctx.fillStyle = inst === 'taphon' ? '#4cc2a8' : 'rgba(245, 212, 135, 0.9)';
+      ctx.shadowColor = inst === 'taphon' ? '#4cc2a8' : '#f5d487';
       ctx.shadowBlur = 14;
       ctx.fill();
 
@@ -913,9 +971,6 @@ export class RhythmGameEngine {
     }
   }
 
-  // --------------------------------------------------------------------------
-  // Particles & Floating Judgement Text
-  // --------------------------------------------------------------------------
   _drawEffects(ctx) {
     for (const p of this.particles) {
       const alpha = Math.max(0, 1 - p.age / p.life);
@@ -932,7 +987,7 @@ export class RhythmGameEngine {
       const alpha = Math.max(0, 1 - ft.age / ft.life);
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.font = '800 26px "Noto Sans Thai", "Plus Jakarta Sans", sans-serif';
+      ctx.font = '800 26px "Sarabun", "Noto Sans Thai", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.lineWidth = 5;
@@ -958,4 +1013,3 @@ export class RhythmGameEngine {
     ctx.closePath();
   }
 }
-

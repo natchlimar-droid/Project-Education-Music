@@ -318,6 +318,140 @@ export class ThaiAudioEngine {
   }
 
   /**
+   * Synthesizes Thai Taphon / Klong (ตะโพน / กลองไทย) membrane & rim hits.
+   * Distinguishes center drumhead ('thum' deep bass, 'pa' crisp slap) vs
+   * drum rims ('ting' bright rim, 'ja' muted rim tap).
+   */
+  playTaphon(zoneId = 'thum', velocity = 0.9) {
+    if (!this.ctx) return;
+    if (this._playSampleIfAvailable(`taphon-${zoneId}`, 0, 0.9 * velocity)) return;
+
+    const now = this.ctx.currentTime;
+    const vol = Math.min(1, Math.max(0.35, velocity));
+
+    const presets = {
+      thum: { startHz: 165, endHz: 86, decay: 0.36, wave: 'sine', noiseHz: 420, noiseAmp: 0.16, noiseDur: 0.045 },
+      pa:   { startHz: 340, endHz: 205, decay: 0.22, wave: 'triangle', noiseHz: 1850, noiseAmp: 0.32, noiseDur: 0.04 },
+      ting: { startHz: 540, endHz: 430, decay: 0.18, wave: 'triangle', noiseHz: 2800, noiseAmp: 0.28, noiseDur: 0.03 },
+      ja:   { startHz: 410, endHz: 290, decay: 0.095, wave: 'sine', noiseHz: 2300, noiseAmp: 0.34, noiseDur: 0.035 },
+    };
+    const p = presets[zoneId] || presets.thum;
+
+    // Drum membrane / rim body oscillator with pitch-drop envelope
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = p.wave;
+    osc.frequency.setValueAtTime(p.startHz, now);
+    osc.frequency.exponentialRampToValueAtTime(p.endHz, now + p.decay * 0.65);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.55 * vol, now + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0008, now + p.decay);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(now);
+    osc.stop(now + p.decay + 0.03);
+
+    // Palm / rim impact transient
+    if (this.noiseBuffer) {
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.noiseBuffer;
+
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(p.noiseHz, now);
+      bp.Q.setValueAtTime(1.6, now);
+
+      const nGain = this.ctx.createGain();
+      nGain.gain.setValueAtTime(p.noiseAmp * vol, now);
+      nGain.gain.exponentialRampToValueAtTime(0.001, now + p.noiseDur);
+
+      noise.connect(bp);
+      bp.connect(nGain);
+      nGain.connect(this.masterGain);
+      noise.start(now);
+      noise.stop(now + p.noiseDur + 0.02);
+    }
+  }
+
+  /**
+   * Synthesizes Thai Khlui Phiang Or (ขลุ่ยเพียงออ — Bamboo Flute).
+   * Combines warm oscillator + gentle LFO vibrato + bandpass-filtered breath air noise.
+   */
+  playKhlui(freq = 523.25, durationSec = 0.48) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const dur = Math.max(0.25, durationSec);
+
+    // 1. Main flute tone (sine + soft triangle overtone)
+    const oscMain = this.ctx.createOscillator();
+    const oscHarm = this.ctx.createOscillator();
+    const mainGain = this.ctx.createGain();
+    const harmGain = this.ctx.createGain();
+
+    oscMain.type = 'sine';
+    oscMain.frequency.setValueAtTime(freq, now);
+    oscHarm.type = 'triangle';
+    oscHarm.frequency.setValueAtTime(freq * 2, now);
+
+    // 2. Gentle LFO vibrato (~5.4 Hz) for expressive Thai flute character
+    const lfo = this.ctx.createOscillator();
+    const lfoDepth = this.ctx.createGain();
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(5.4, now);
+    lfoDepth.gain.setValueAtTime(freq * 0.008, now);
+    lfo.connect(lfoDepth);
+    lfoDepth.connect(oscMain.frequency);
+    lfoDepth.connect(oscHarm.frequency);
+
+    // Soft breathy envelope (45ms attack, sustain, gentle release)
+    mainGain.gain.setValueAtTime(0.0001, now);
+    mainGain.gain.linearRampToValueAtTime(0.32, now + 0.045);
+    mainGain.gain.setValueAtTime(0.28, now + dur * 0.72);
+    mainGain.gain.exponentialRampToValueAtTime(0.0006, now + dur);
+
+    harmGain.gain.setValueAtTime(0.0001, now);
+    harmGain.gain.linearRampToValueAtTime(0.06, now + 0.06);
+    harmGain.gain.exponentialRampToValueAtTime(0.0005, now + dur);
+
+    oscMain.connect(mainGain);
+    oscHarm.connect(harmGain);
+    mainGain.connect(this.masterGain);
+    harmGain.connect(this.masterGain);
+
+    oscMain.start(now);
+    oscHarm.start(now);
+    lfo.start(now);
+    oscMain.stop(now + dur + 0.04);
+    oscHarm.stop(now + dur + 0.04);
+    lfo.stop(now + dur + 0.04);
+
+    // 3. Filtered breath air noise (bamboo edge turbulence)
+    if (this.noiseBuffer) {
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = this.noiseBuffer;
+      noise.loop = true;
+
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(Math.min(4500, freq * 2.2), now);
+      bp.Q.setValueAtTime(3.2, now);
+
+      const nGain = this.ctx.createGain();
+      nGain.gain.setValueAtTime(0.0001, now);
+      nGain.gain.linearRampToValueAtTime(0.085, now + 0.035);
+      nGain.gain.exponentialRampToValueAtTime(0.0008, now + dur);
+
+      noise.connect(bp);
+      bp.connect(nGain);
+      nGain.connect(this.masterGain);
+      noise.start(now);
+      noise.stop(now + dur + 0.03);
+    }
+  }
+
+  /**
    * Subtle tempo pulse (soft Thai woodblock / Krap) scheduled strictly on `audioCtx.currentTime`.
    */
   playMetronomeTick(when, isAccent = false) {

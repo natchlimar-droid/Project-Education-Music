@@ -30,7 +30,7 @@
   --shadow-soft: 0 14px 40px rgba(0, 0, 0, 0.42);
   --transition: 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 
-  --font-sans: 'Noto Sans Thai', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Sarabun', 'Noto Sans Thai', 'Leelawadee UI', 'Thonburi', 'Tahoma', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
 *,
@@ -1024,3 +1024,167 @@ button:focus-visible {
   }
 }
 
+
+/* ==========================================================================
+   Accessible Touch Targets (>= 44x44px UDL) & Latency Calibration UI
+   ========================================================================== */
+.btn-touch {
+  min-width: 44px;
+  min-height: 48px;
+  padding: 12px 24px;
+  font-size: 0.98rem;
+}
+
+.btn-lg-secondary {
+  min-height: 54px;
+  padding: 15px 26px;
+  font-size: 1.05rem;
+}
+
+.btn-icon-only {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.btn-ghost {
+  min-height: 44px;
+}
+
+.seg-btn {
+  min-height: 40px;
+}
+
+/* Latency Calibration Panel in Setup */
+.latency-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.latency-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.latency-title {
+  margin-bottom: 4px;
+}
+
+.latency-desc {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+.latency-slider-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.latency-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+}
+
+.latency-value {
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.slider-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.slider-bound {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+#latency-slider {
+  flex: 1;
+  min-width: 180px;
+  accent-color: var(--gold);
+  height: 8px;
+  cursor: pointer;
+}
+
+/* Latency Calibration Modal */
+.modal-fixed {
+  position: fixed;
+  z-index: 100;
+}
+
+.latency-modal-card {
+  max-width: 520px;
+}
+
+.beat-dots {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 4px 0;
+}
+
+.beat-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--border-subtle);
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.beat-dot.active {
+  background: var(--gold-bright);
+  transform: scale(1.35);
+  box-shadow: 0 0 12px var(--gold);
+}
+
+.beat-dot.recorded {
+  background: var(--jade);
+  border-color: var(--jade);
+}
+
+.btn-tap-target {
+  width: 100%;
+  min-height: 92px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border-strong);
+  background: linear-gradient(180deg, rgba(223, 178, 88, 0.18), rgba(36, 31, 45, 0.95));
+  color: var(--gold-bright);
+  font-size: 1.25rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.12s ease;
+}
+
+.btn-tap-target:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-tap-target:not(:disabled):active,
+.btn-tap-target.tapped {
+  transform: scale(0.97);
+  background: rgba(76, 194, 168, 0.28);
+  border-color: var(--jade);
+  color: #ffffff;
+}
+
+.latency-result-text {
+  min-height: 24px;
+  font-weight: 700;
+  color: var(--jade);
+}

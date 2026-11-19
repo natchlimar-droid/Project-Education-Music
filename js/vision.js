@@ -62,6 +62,14 @@ export class HandVisionTracker {
       holdProgress: 0,        // 0..1 visual fill while holding for Chab
       palmMidpoint: null,     // { x, y } in mirrored normalized coords
     };
+
+    // Khlui (Bamboo Flute) finger-count stability state
+    this.khluiState = {
+      currentFingers: 0,
+      candidateFingers: 0,
+      candidateSinceMs: 0,
+      lastEmitMs: 0,
+    };
   }
 
   /**
@@ -145,6 +153,12 @@ export class HandVisionTracker {
       holdProgress: 0,
       palmMidpoint: null,
     };
+    this.khluiState = {
+      currentFingers: 0,
+      candidateFingers: 0,
+      candidateSinceMs: 0,
+      lastEmitMs: 0,
+    };
   }
 
   /**
@@ -186,7 +200,8 @@ export class HandVisionTracker {
           id: `${handedness}-${i}`,
           label: handedness,
           landmarks,
-          indexTip: landmarks[8],  // Landmark 8: Index fingertip
+          wrist: landmarks[0],      // Landmark 0: Wrist (for Taphon drum strikes)
+          indexTip: landmarks[8],   // Landmark 8: Index fingertip
           palmCenter: landmarks[9], // Landmark 9: Palm center (Middle MCP)
           handSize,
         });
@@ -357,6 +372,117 @@ export class HandVisionTracker {
     }
 
     return null;
+  }
+
+  /**
+   * Evaluates Taphon / Thai Drum strikes using Wrist (Landmark 0) downward velocity.
+   * Maps horizontal wrist position to 4 zones: Left Rim, Left Head, Right Head, Right Rim.
+   */
+  evaluateTaphonStrikes(nowMs, drumBounds) {
+    const strikes = [];
+    const activeIds = new Set();
+
+    for (const hand of this.hands) {
+      const pt = hand.wrist; // Landmark 0: Wrist
+      const handKey = `wrist-${hand.label || hand.id}`;
+      activeIds.add(handKey);
+
+      const hist = this.handHistory.get(handKey) || {
+        prevY: pt.y,
+        prevTimeMs: nowMs,
+        lastTriggerMs: 0,
+      };
+
+      const dtMs = Math.max(1, nowMs - hist.prevTimeMs);
+      const deltaY = pt.y - hist.prevY;
+      const vy = deltaY / (dtMs / 1000);
+
+      hist.prevY = pt.y;
+      hist.prevTimeMs = nowMs;
+
+      const inHorizontal = pt.x >= drumBounds.leftX && pt.x <= drumBounds.rightX;
+      const inVertical = pt.y >= drumBounds.topY && pt.y <= drumBounds.bottomY;
+
+      if (inHorizontal && inVertical) {
+        const relX = (pt.x - drumBounds.leftX) / (drumBounds.rightX - drumBounds.leftX);
+        const lane = Math.min(drumBounds.laneCount - 1, Math.max(0, Math.floor(relX * drumBounds.laneCount)));
+
+        const isDownwardStrike = deltaY > this.STRIKE_DELTA_Y && vy > this.STRIKE_MIN_VY;
+        const handReady = nowMs - hist.lastTriggerMs >= this.COOLDOWN_MS;
+        const keyReady = nowMs - (this.keyCooldowns.get(lane) || 0) >= this.COOLDOWN_MS;
+
+        if (isDownwardStrike && handReady && keyReady) {
+          hist.lastTriggerMs = nowMs;
+          this.keyCooldowns.set(lane, nowMs);
+          const normVel = Math.min(1.0, Math.max(0.55, vy / 2.1));
+          strikes.push({ lane, handId: handKey, velocity: normVel, x: pt.x, y: pt.y });
+        }
+      }
+
+      this.handHistory.set(handKey, hist);
+    }
+
+    for (const key of this.handHistory.keys()) {
+      if (key.startsWith('wrist-') && !activeIds.has(key)) {
+        this.handHistory.delete(key);
+      }
+    }
+
+    return strikes;
+  }
+
+  /**
+   * Counts extended fingers (1..5) for Khlui (Thai Bamboo Flute) note selection.
+   * Uses orientation-independent thumb check + vertical PIP/TIP check for 4 fingers,
+   * smoothed by a 45ms stability debounce to prevent single-frame flickers.
+   */
+  evaluateKhluiFingers(nowMs) {
+    const ks = this.khluiState;
+    if (this.hands.length === 0) {
+      ks.currentFingers = 0;
+      return { fingerCount: 0, triggeredLane: -1 };
+    }
+
+    // Use the hand with the highest extended finger count (allows playing with either hand)
+    let bestCount = 0;
+    for (const hand of this.hands) {
+      const lm = hand.landmarks;
+      let count = 0;
+
+      // Index (8 vs 6), Middle (12 vs 10), Ring (16 vs 14), Pinky (20 vs 18)
+      const fingerPairs = [[8, 6], [12, 10], [16, 14], [20, 18]];
+      for (const [tipIdx, pipIdx] of fingerPairs) {
+        if (lm[tipIdx].y < lm[pipIdx].y - 0.02) {
+          count++;
+        }
+      }
+
+      // Orientation-independent thumb extension: tip (4) farther from pinky MCP (17) than IP (3)
+      const tipToPinky = Math.hypot(lm[4].x - lm[17].x, lm[4].y - lm[17].y);
+      const ipToPinky = Math.hypot(lm[3].x - lm[17].x, lm[3].y - lm[17].y);
+      if (tipToPinky > ipToPinky * 1.12) {
+        count++;
+      }
+
+      if (count > bestCount) bestCount = count;
+    }
+
+    // Stability debounce (45ms) before accepting a new finger count
+    if (bestCount !== ks.candidateFingers) {
+      ks.candidateFingers = bestCount;
+      ks.candidateSinceMs = nowMs;
+    }
+
+    let triggeredLane = -1;
+    if (nowMs - ks.candidateSinceMs >= 45 && ks.candidateFingers !== ks.currentFingers) {
+      ks.currentFingers = ks.candidateFingers;
+      if (ks.currentFingers >= 1 && ks.currentFingers <= 5 && nowMs - ks.lastEmitMs >= this.COOLDOWN_MS) {
+        ks.lastEmitMs = nowMs;
+        triggeredLane = ks.currentFingers - 1;
+      }
+    }
+
+    return { fingerCount: ks.currentFingers, triggeredLane };
   }
 }
 
