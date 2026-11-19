@@ -177,6 +177,24 @@ export const BEATMAPS = [
     ],
   },
   {
+    id: 'ranat-lvl1-laojoy',
+    instrument: 'ranat',
+    level: 1,
+    bpm: 75,
+    leadInBeats: 4,
+    title: { th: 'ลาวจ้อย (พื้นฐาน)', en: 'Lao Joy — Northern Folk' },
+    notes: [
+      // Bright pentatonic opening motif (ด ร ม ซ ล)
+      { beat: 0, lane: 2 }, { beat: 2, lane: 3 }, { beat: 4, lane: 4 }, { beat: 6, lane: 3 },
+      { beat: 8, lane: 2 }, { beat: 10, lane: 1 }, { beat: 12, lane: 2 }, { beat: 14, lane: 3 },
+      { beat: 16, lane: 4 }, { beat: 18, lane: 3 }, { beat: 20, lane: 2 }, { beat: 22, lane: 1 },
+      { beat: 24, lane: 0 }, { beat: 26, lane: 1 }, { beat: 28, lane: 2 }, { beat: 30, lane: 3 },
+      { beat: 32, lane: 4 }, { beat: 34, lane: 4 }, { beat: 36, lane: 3 }, { beat: 38, lane: 2 },
+      { beat: 40, lane: 1 }, { beat: 42, lane: 2 }, { beat: 44, lane: 3 }, { beat: 46, lane: 1 },
+      { beat: 48, lane: 0 },
+    ],
+  },
+  {
     id: 'ranat-lvl2-loykrathong',
     instrument: 'ranat',
     level: 2,
@@ -196,6 +214,27 @@ export const BEATMAPS = [
       { beat: 38.5, lane: 2 }, { beat: 40, lane: 1 }, { beat: 41.5, lane: 2 },
       { beat: 43, lane: 4 }, { beat: 44, lane: 5 }, { beat: 45, lane: 6 }, { beat: 46, lane: 5 },
       { beat: 47.5, lane: 4 }, { beat: 49, lane: 2 }, { beat: 50.5, lane: 0 },
+    ],
+  },
+  {
+    id: 'ranat-lvl2-khangkhao',
+    instrument: 'ranat',
+    level: 2,
+    bpm: 95,
+    leadInBeats: 4,
+    title: { th: 'ค้างคาวกินกล้วย', en: 'Khang Khao Kin Kluai' },
+    notes: [
+      // Playful rhythmic phrasing across 7 keys (0:ด .. 6:ท)
+      { beat: 0, lane: 2 }, { beat: 1, lane: 4 }, { beat: 2, lane: 5 }, { beat: 3, lane: 4 },
+      { beat: 4, lane: 2 }, { beat: 5, lane: 1 }, { beat: 6, lane: 2 }, { beat: 7.5, lane: 4 },
+      { beat: 9, lane: 5 }, { beat: 10, lane: 6 }, { beat: 11, lane: 5 }, { beat: 12, lane: 4 },
+      { beat: 13, lane: 3 }, { beat: 14, lane: 2 }, { beat: 15.5, lane: 1 },
+      { beat: 17, lane: 0 }, { beat: 18, lane: 2 }, { beat: 19, lane: 4 }, { beat: 20, lane: 2 },
+      { beat: 21, lane: 1 }, { beat: 22, lane: 2 }, { beat: 23, lane: 4 }, { beat: 24.5, lane: 5 },
+      { beat: 26, lane: 4 }, { beat: 27, lane: 2 }, { beat: 28, lane: 1 }, { beat: 29, lane: 0 },
+      { beat: 30.5, lane: 1 }, { beat: 32, lane: 2 }, { beat: 33.5, lane: 4 }, { beat: 35, lane: 5 },
+      { beat: 36, lane: 6 }, { beat: 37, lane: 5 }, { beat: 38, lane: 4 }, { beat: 39.5, lane: 2 },
+      { beat: 41, lane: 1 }, { beat: 42.5, lane: 0 },
     ],
   },
   {
@@ -249,6 +288,22 @@ export const BEATMAPS = [
     ],
   },
   {
+    id: 'ching-lvl1-chang2chan',
+    instrument: 'ching',
+    level: 1,
+    bpm: 75,
+    leadInBeats: 4,
+    title: { th: 'จังหวะเพลงช้างสองชั้น', en: 'Chang 2-Chan Ching' },
+    notes: [
+      { beat: 0, type: 'ching' },  { beat: 4, type: 'chab' },
+      { beat: 8, type: 'ching' },  { beat: 12, type: 'chab' },
+      { beat: 16, type: 'ching' }, { beat: 19, type: 'ching' }, { beat: 22, type: 'chab' },
+      { beat: 26, type: 'ching' }, { beat: 30, type: 'chab' },
+      { beat: 34, type: 'ching' }, { beat: 38, type: 'chab' },
+      { beat: 42, type: 'ching' }, { beat: 45, type: 'ching' }, { beat: 48, type: 'chab' },
+    ],
+  },
+  {
     id: 'ching-lvl2-ramwong',
     instrument: 'ching',
     level: 2,
@@ -266,6 +321,25 @@ export const BEATMAPS = [
       { beat: 32, type: 'ching' }, { beat: 34, type: 'chab' },
       { beat: 36, type: 'ching' }, { beat: 38, type: 'chab' },
       { beat: 40, type: 'ching' }, { beat: 42, type: 'chab' },
+    ],
+  },
+  {
+    id: 'ching-lvl2-laojoy',
+    instrument: 'ching',
+    level: 2,
+    bpm: 95,
+    leadInBeats: 4,
+    title: { th: 'จังหวะลาวจ้อย (ฉิ่ง)', en: 'Lao Joy Ching Groove' },
+    notes: [
+      { beat: 0, type: 'ching' },  { beat: 2, type: 'ching' }, { beat: 4, type: 'chab' },
+      { beat: 6, type: 'ching' },  { beat: 8, type: 'chab' },
+      { beat: 10, type: 'ching' }, { beat: 12, type: 'chab' },
+      { beat: 14, type: 'ching' }, { beat: 16, type: 'ching' }, { beat: 18, type: 'chab' },
+      { beat: 20, type: 'ching' }, { beat: 22, type: 'chab' },
+      { beat: 24, type: 'ching' }, { beat: 26, type: 'chab' },
+      { beat: 28, type: 'ching' }, { beat: 30, type: 'ching' }, { beat: 32, type: 'chab' },
+      { beat: 34, type: 'ching' }, { beat: 36, type: 'chab' },
+      { beat: 38, type: 'ching' }, { beat: 40, type: 'chab' },
     ],
   },
   {
@@ -354,6 +428,30 @@ export const BEATMAPS = [
       { beat: 32, lane: 1, chord: true }, { beat: 32, lane: 2, chord: true },
     ],
   },
+  {
+    id: 'taphon-lvl3-laokrathopmai',
+    instrument: 'taphon',
+    level: 3,
+    bpm: 120,
+    leadInBeats: 4,
+    title: { th: 'หน้าทับลาวกระทบไม้ (เร็ว)', en: 'Lao Krathop Mai — Rapid Drum' },
+    notes: [
+      // Energetic bamboo-dance rim/head interplay + two-hand chords
+      { beat: 0, lane: 0, chord: true }, { beat: 0, lane: 3, chord: true },
+      { beat: 1, lane: 1 }, { beat: 2, lane: 2 }, { beat: 3, lane: 1 },
+      { beat: 4, lane: 0, chord: true }, { beat: 4, lane: 3, chord: true },
+      { beat: 5, lane: 2 }, { beat: 6, lane: 1 }, { beat: 7, lane: 2 },
+      { beat: 8, lane: 1, chord: true }, { beat: 8, lane: 2, chord: true },
+      { beat: 9.5, lane: 0 }, { beat: 10.25, lane: 1 }, { beat: 11, lane: 2 }, { beat: 11.75, lane: 3 },
+      { beat: 12.5, lane: 1 }, { beat: 13.25, lane: 2 }, { beat: 14, lane: 0 }, { beat: 14.75, lane: 3 },
+      { beat: 16, lane: 1, chord: true }, { beat: 16, lane: 2, chord: true },
+      { beat: 17.5, lane: 0 }, { beat: 18.25, lane: 3 }, { beat: 19, lane: 1 }, { beat: 19.75, lane: 2 },
+      { beat: 20.5, lane: 0 }, { beat: 21.25, lane: 1 }, { beat: 22, lane: 2 }, { beat: 22.75, lane: 3 },
+      { beat: 24, lane: 0, chord: true }, { beat: 24, lane: 3, chord: true },
+      { beat: 25.5, lane: 1 }, { beat: 26.25, lane: 2 }, { beat: 27, lane: 1 }, { beat: 27.75, lane: 0 },
+      { beat: 29, lane: 1, chord: true }, { beat: 29, lane: 2, chord: true },
+    ],
+  },
 
   // ==========================================================================
   // KHLUI / BAMBOO FLUTE (Levels 1 - 3) — Lanes 0..4 => 1..5 Extended Fingers
@@ -391,6 +489,24 @@ export const BEATMAPS = [
     ],
   },
   {
+    id: 'khlui-lvl2-laodamnoensai',
+    instrument: 'khlui',
+    level: 2,
+    bpm: 95,
+    leadInBeats: 4,
+    title: { th: 'ลาวดำเนินทราย (ขลุ่ย)', en: 'Lao Damnoen Sai — Flowing Flute' },
+    notes: [
+      // Graceful flowing pentatonic bamboo flute melody
+      { beat: 0, lane: 0 }, { beat: 1.5, lane: 2 }, { beat: 3, lane: 3 }, { beat: 4.5, lane: 4 },
+      { beat: 6, lane: 3 }, { beat: 7.5, lane: 2 }, { beat: 9, lane: 1 }, { beat: 10.5, lane: 2 },
+      { beat: 12, lane: 3 }, { beat: 13.5, lane: 4 }, { beat: 15, lane: 3 }, { beat: 16.5, lane: 2 },
+      { beat: 18, lane: 1 }, { beat: 19.5, lane: 0 }, { beat: 21, lane: 1 }, { beat: 22.5, lane: 2 },
+      { beat: 24, lane: 4 }, { beat: 25.5, lane: 3 }, { beat: 27, lane: 2 }, { beat: 28.5, lane: 1 },
+      { beat: 30, lane: 2 }, { beat: 31.5, lane: 3 }, { beat: 33, lane: 2 }, { beat: 34.5, lane: 1 },
+      { beat: 36, lane: 0 },
+    ],
+  },
+  {
     id: 'khlui-lvl3-phamahe',
     instrument: 'khlui',
     level: 3,
@@ -409,6 +525,14 @@ export const BEATMAPS = [
     ],
   },
 ];
+
+export function getBeatmapsFor(instrument, level) {
+  return BEATMAPS.filter((b) => b.instrument === instrument && b.level === Number(level));
+}
+
+export function getBeatmapById(id) {
+  return BEATMAPS.find((b) => b.id === id) || BEATMAPS[0];
+}
 
 export function getBeatmap(instrument, level) {
   return BEATMAPS.find((b) => b.instrument === instrument && b.level === Number(level)) || BEATMAPS[0];

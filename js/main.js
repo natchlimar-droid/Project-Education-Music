@@ -12,7 +12,15 @@
 import { ThaiAudioEngine } from './audio.js';
 import { HandVisionTracker } from './vision.js';
 import { RhythmGameEngine } from './gameEngine.js';
-import { DIFFICULTY_CONFIG, TAPHON_ZONES, KHLUI_NOTES, getBeatmap, thai7TetFreq } from './beatmaps.js';
+import {
+  DIFFICULTY_CONFIG,
+  TAPHON_ZONES,
+  KHLUI_NOTES,
+  getBeatmap,
+  getBeatmapsFor,
+  getBeatmapById,
+  thai7TetFreq,
+} from './beatmaps.js';
 
 const STORAGE_KEY = 'siam_rhythm_personal_bests_v1';
 const LATENCY_STORAGE_KEY = 'siam_rhythm_latency_offsets_v2';
@@ -47,6 +55,8 @@ const I18N = {
     landmarkFinger: 'ปลายนิ้วชี้ (แม่นยำ)',
     landmarkPalm: 'กลางฝ่ามือ (สบายมือ)',
     selectDifficulty: 'เลือกระดับความยาก',
+    selectSongLabel: 'เลือกเพลงในระดับนี้:',
+    songsCountUnit: 'เพลง',
     latencyTitle: 'ปรับชดเชยดีเลย์เสียง/ภาพ (แยกโหมดกล้องและคีย์บอร์ด)',
     latencyDesc: 'โหมดกล้องมีความหน่วงจากการประมวลผลภาพต่างจากคีย์บอร์ด สามารถวัดและเก็บค่าชดเชยแยกกันได้ (±200ms)',
     openLatencyBtn: '⏱️ วัดดีเลย์อัตโนมัติ (8 จังหวะ)',
@@ -146,6 +156,8 @@ const I18N = {
     landmarkFinger: 'Index Fingertip (Precise)',
     landmarkPalm: 'Palm Center (Relaxed)',
     selectDifficulty: 'Select Difficulty',
+    selectSongLabel: 'Select Song in This Level:',
+    songsCountUnit: 'songs',
     latencyTitle: 'Audio / Visual Latency Calibration (Camera vs Keyboard)',
     latencyDesc: 'Camera processing adds delay compared to keyboard input. Measure and store separate offsets (±200ms).',
     openLatencyBtn: '⏱️ Auto-Measure Delay (8 Beats)',
@@ -258,6 +270,7 @@ const appState = {
   lang: 'th',
   instrument: 'ranat',
   level: 1,
+  beatmapId: 'ranat-lvl1-chang',
   landmarkIdx: 8,
   useCamera: true,
   latencyProfile: 'camera', // Active profile shown in Setup slider ('camera' | 'keyboard')
@@ -281,6 +294,7 @@ const el = {
   landmarkGroup: document.getElementById('landmark-group'),
   landmarkBtns: document.querySelectorAll('[data-landmark]'),
   difficultyGrid: document.getElementById('difficulty-grid'),
+  songList: document.getElementById('song-list'),
 
   latencyModeGroup: document.getElementById('latency-mode-group'),
   latencyModeBtns: document.querySelectorAll('[data-latency-mode]'),
@@ -764,6 +778,15 @@ function applyTranslations() {
   renderTouchPad();
 }
 
+function getActiveBeatmap() {
+  const candidates = getBeatmapsFor(appState.instrument, appState.level);
+  const found = candidates.find((b) => b.id === appState.beatmapId);
+  if (found) return found;
+  const fallback = candidates[0] || getBeatmap(appState.instrument, appState.level);
+  appState.beatmapId = fallback.id;
+  return fallback;
+}
+
 function renderDifficultyCards() {
   const dict = I18N[appState.lang];
   const bests = loadPersonalBests();
@@ -771,9 +794,16 @@ function renderDifficultyCards() {
 
   for (const levelNum of [1, 2, 3]) {
     const cfg = DIFFICULTY_CONFIG[levelNum];
-    const beatmap = getBeatmap(appState.instrument, levelNum);
-    const best = bests[beatmap.id];
+    const songsInLevel = getBeatmapsFor(appState.instrument, levelNum);
+    const primarySong = songsInLevel[0] || getBeatmap(appState.instrument, levelNum);
     const isActive = appState.level === levelNum;
+
+    // Show best score across songs in this level
+    let bestInLevel = null;
+    for (const s of songsInLevel) {
+      const rec = bests[s.id];
+      if (rec && (!bestInLevel || rec.score > bestInLevel.score)) bestInLevel = rec;
+    }
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -784,9 +814,13 @@ function renderDifficultyCards() {
     btn.setAttribute('tabindex', isActive ? '0' : '-1');
 
     const descText = cfg.descriptions[appState.instrument]?.[appState.lang] || '';
-    const bestText = best
-      ? `<span>${dict.bestPrefix}: <strong>${best.score.toLocaleString()}</strong></span><span>Grade ${best.grade}</span>`
-      : `<span>${dict.noBestYet}</span><span>—</span>`;
+    const countLabel =
+      songsInLevel.length > 1
+        ? `${primarySong.title[appState.lang]} (+${songsInLevel.length - 1})`
+        : primarySong.title[appState.lang];
+    const bestText = bestInLevel
+      ? `<span>${dict.bestPrefix}: <strong>${bestInLevel.score.toLocaleString()}</strong></span><span>Grade ${bestInLevel.grade}</span>`
+      : `<span>${dict.noBestYet}</span><span>${songsInLevel.length} ${dict.songsCountUnit}</span>`;
 
     // Valid HTML5 phrasing content (<span> only inside <button>)
     btn.innerHTML = `
@@ -794,7 +828,7 @@ function renderDifficultyCards() {
         <span class="diff-badge lvl-${levelNum}">${cfg.badge[appState.lang]}</span>
         <span style="font-size:0.82rem;color:var(--text-muted);font-weight:700;">${cfg.bpm} BPM</span>
       </span>
-      <span class="diff-song">${beatmap.title[appState.lang]}</span>
+      <span class="diff-song">${countLabel}</span>
       <span class="diff-meta">${descText}</span>
       <span class="diff-best">${bestText}</span>
     `;
@@ -802,9 +836,53 @@ function renderDifficultyCards() {
     btn.addEventListener('click', () => {
       appState.level = levelNum;
       syncRadioGroupUI(el.difficultyGrid, btn);
+      renderSongList();
     });
 
     el.difficultyGrid.appendChild(btn);
+  }
+
+  renderSongList();
+}
+
+function renderSongList() {
+  if (!el.songList) return;
+  const dict = I18N[appState.lang];
+  const bests = loadPersonalBests();
+  const songs = getBeatmapsFor(appState.instrument, appState.level);
+  const activeSong = getActiveBeatmap();
+
+  el.songList.innerHTML = '';
+  for (const song of songs) {
+    const isSelected = song.id === activeSong.id;
+    const best = bests[song.id];
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `song-pill-card${isSelected ? ' active' : ''}`;
+    btn.dataset.beatmapId = song.id;
+    btn.setAttribute('role', 'radio');
+    btn.setAttribute('aria-checked', String(isSelected));
+    btn.setAttribute('tabindex', isSelected ? '0' : '-1');
+
+    const bestMeta = best
+      ? `${dict.bestPrefix}: ${best.score.toLocaleString()} • Grade ${best.grade}`
+      : `${song.bpm} BPM • ${song.notes.length} notes`;
+
+    btn.innerHTML = `
+      <span>
+        <span class="song-pill-title">${song.title[appState.lang]}</span>
+        <span class="song-pill-meta">${bestMeta}</span>
+      </span>
+      <span style="font-size:0.82rem;color:var(--gold);font-weight:700;">${isSelected ? '✓' : ''}</span>
+    `;
+
+    btn.addEventListener('click', () => {
+      appState.beatmapId = song.id;
+      renderSongList();
+    });
+
+    el.songList.appendChild(btn);
   }
 }
 
@@ -928,7 +1006,7 @@ async function launchGame({ useCamera }) {
 
   await audioEngine.init();
 
-  const beatmap = getBeatmap(appState.instrument, appState.level);
+  const beatmap = getActiveBeatmap();
   const diffCfg = DIFFICULTY_CONFIG[appState.level];
 
   el.hudSongTitle.textContent = beatmap.title[appState.lang];
@@ -968,7 +1046,7 @@ async function launchGame({ useCamera }) {
 
 function showSummaryScreen(result) {
   const dict = I18N[appState.lang];
-  const beatmap = getBeatmap(appState.instrument, appState.level);
+  const beatmap = getBeatmapById(result.beatmapId);
   const { isNewBest, bestScore } = savePersonalBest(result.beatmapId, result);
 
   el.summarySongName.textContent = `${beatmap.title[appState.lang]} • ${DIFFICULTY_CONFIG[appState.level].name[appState.lang]}`;
@@ -1046,7 +1124,16 @@ attachRadioArrowNavigation(el.landmarkGroup, selectLandmarkNode);
 // Difficulty ARIA radiogroup
 attachRadioArrowNavigation(el.difficultyGrid, (card) => {
   appState.level = Number(card.dataset.level);
+  renderSongList();
 });
+
+// Song Selector ARIA radiogroup
+if (el.songList) {
+  attachRadioArrowNavigation(el.songList, (card) => {
+    appState.beatmapId = card.dataset.beatmapId;
+    renderSongList();
+  });
+}
 
 // Latency Profile Radiogroup (Camera vs Keyboard in Setup)
 function selectLatencyProfileNode(btn) {
@@ -1139,7 +1226,7 @@ el.btnPauseGame.addEventListener('click', () => gameEngine.pause());
 el.btnResumeGame.addEventListener('click', () => gameEngine.resume());
 
 function restartCurrentSong() {
-  const beatmap = getBeatmap(appState.instrument, appState.level);
+  const beatmap = getActiveBeatmap();
   const modeOffset = appState.useCamera
     ? appState.latencyOffsets.camera
     : appState.latencyOffsets.keyboard;
@@ -1156,6 +1243,7 @@ el.btnPauseMenu.addEventListener('click', exitToMenu);
 el.btnPlayAgain.addEventListener('click', () => launchGame({ useCamera: appState.useCamera }));
 el.btnNextLevel.addEventListener('click', () => {
   appState.level = Math.min(3, appState.level + 1);
+  appState.beatmapId = getBeatmapsFor(appState.instrument, appState.level)[0]?.id || null;
   launchGame({ useCamera: appState.useCamera });
 });
 el.btnSummaryMenu.addEventListener('click', exitToMenu);
