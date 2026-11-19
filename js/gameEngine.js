@@ -62,7 +62,12 @@ export class RhythmGameEngine {
     };
 
     this._handleResize = this.resize.bind(this);
+    this._handleOrientation = () => {
+      this.resize();
+      setTimeout(() => this.resize(), 120);
+    };
     window.addEventListener('resize', this._handleResize);
+    window.addEventListener('orientationchange', this._handleOrientation);
   }
 
   _freshStats() {
@@ -112,6 +117,11 @@ export class RhythmGameEngine {
     this.useCamera = useCamera;
     this.landmarkIdx = landmarkIdx;
     this.setLatencyOffsetMs(latencyOffsetMs);
+
+    // Leave clean breathing room at bottom when on-screen touch pad is shown
+    this.barBounds = useCamera
+      ? { leftX: 0.05, rightX: 0.95, topY: 0.72, bottomY: 0.94 }
+      : { leftX: 0.04, rightX: 0.96, topY: 0.62, bottomY: 0.80 };
 
     if (beatmap.instrument === 'ranat') this.lanes = this.diffConfig.ranatKeys;
     else if (beatmap.instrument === 'taphon') this.lanes = TAPHON_ZONES;
@@ -226,10 +236,16 @@ export class RhythmGameEngine {
   }
 
   // ==========================================================================
-  // 3-Second Hand Readiness Check (1 hand for Khlui, 2 hands for others)
+  // 3-Second Hand Readiness Check
+  // - Khlui: 1 hand
+  // - Level 1 Beginner (Ranat/Taphon): 1 hand (friendly for narrow mobile front cameras)
+  // - Ching & Levels 2-3: 2 hands
   // ==========================================================================
   _updateCalibration(dtSec) {
-    const requiredHands = this.beatmap.instrument === 'khlui' ? 1 : 2;
+    const inst = this.beatmap.instrument;
+    const isSingleHandFriendly =
+      inst === 'khlui' || (this.beatmap.level === 1 && (inst === 'ranat' || inst === 'taphon'));
+    const requiredHands = isSingleHandFriendly ? 1 : 2;
     const handsCount = this.vision.hands.length;
 
     if (handsCount >= requiredHands) {

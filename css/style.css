@@ -1260,3 +1260,205 @@ button:focus-visible {
   margin-top: 0;
   padding-top: 10px;
 }
+
+/* ==========================================================================
+   Mobile-First UX, 100dvh, Safe Areas, Scrollable Modals & Touch Pad
+   ========================================================================== */
+html,
+body {
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+#screen-game {
+  height: calc(100vh - 67px);
+  height: calc(100dvh - 67px);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.stage-overlay {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.overlay-card {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+/* Accessible >= 44px Slider Thumb for Mobile Touch */
+#latency-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gold-bright);
+  border: 2px solid #1a140b;
+  cursor: pointer;
+}
+
+#latency-slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gold-bright);
+  border: 2px solid #1a140b;
+  cursor: pointer;
+}
+
+/* On-Screen Multi-Touch Pad (Active in Touch/Keyboard Mode) */
+.touch-pad-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(17, 15, 21, 0), rgba(17, 15, 21, 0.92) 28%);
+  touch-action: none;
+}
+
+.touch-pad-btn {
+  min-height: 68px;
+  border-radius: 14px;
+  border: 2px solid var(--pad-color, var(--gold));
+  background: linear-gradient(180deg, rgba(44, 36, 54, 0.92), rgba(22, 18, 28, 0.96));
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  touch-action: none;
+  transition: transform 0.06s ease, background 0.08s ease;
+}
+
+.touch-pad-btn .pad-main {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.touch-pad-btn .pad-sub {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.touch-pad-btn.pressed,
+.touch-pad-btn:active {
+  transform: scale(0.95);
+  background: var(--pad-color, var(--gold));
+  color: #140f08;
+}
+
+.touch-pad-btn.pressed .pad-sub,
+.touch-pad-btn:active .pad-sub {
+  color: #24190a;
+}
+
+/* Mobile Portrait (<= 768px) */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 10px 14px;
+  }
+
+  .brand-sub {
+    display: none;
+  }
+
+  .setup-container {
+    padding: 18px 14px 110px;
+    gap: 16px;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  .select-card {
+    padding: 13px 14px;
+    gap: 12px;
+  }
+
+  /* Sticky Bottom CTA Bar on Mobile */
+  .cta-buttons {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    background: rgba(17, 15, 21, 0.94);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border-subtle);
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
+
+  .cta-buttons .btn-primary,
+  .cta-buttons .btn-secondary {
+    flex: 1;
+    min-height: 48px;
+    padding: 11px 12px;
+    font-size: 0.92rem;
+  }
+
+  /* Gameplay HUD: Compact 2 rows in Portrait; Restart hidden into Pause menu */
+  #btn-restart-game {
+    display: none;
+  }
+
+  .hud-bar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .stat-value {
+    font-size: 1.15rem;
+  }
+
+  .touch-pad-btn {
+    min-height: 64px;
+  }
+}
+
+/* Mobile Landscape (compact single-row HUD) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .app-header {
+    padding: 6px 14px;
+  }
+
+  #screen-game {
+    height: calc(100vh - 50px);
+    height: calc(100dvh - 50px);
+  }
+
+  .hud-bar {
+    flex-wrap: nowrap;
+    padding: 6px 12px;
+  }
+
+  .hud-stats {
+    order: 0;
+    width: auto;
+    border-top: none;
+    padding-top: 0;
+    gap: 16px;
+  }
+
+  #btn-restart-game {
+    display: none;
+  }
+
+  .touch-pad-btn {
+    min-height: 52px;
+  }
+}

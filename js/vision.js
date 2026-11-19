@@ -32,6 +32,8 @@ export class HandVisionTracker {
     this.stream = null;
     this.isReady = false;
     this.lastVideoTime = -1;
+    this.lastDetectPerfMs = 0;
+    this.MIN_DETECT_INTERVAL_MS = 32; // Cap inference to ~30 FPS to prevent mobile thermal throttling
 
     // Latest detected hands in mirrored normalized coordinates [0..1]
     this.hands = [];
@@ -84,17 +86,26 @@ export class HandVisionTracker {
       const { FilesetResolver, HandLandmarker } = visionModule;
 
       const filesetResolver = await FilesetResolver.forVisionTasks(`${VISION_CDN}/wasm`);
-      this.handLandmarker = await HandLandmarker.createFromOptions(filesetResolver, {
-        baseOptions: {
-          modelAssetPath: MODEL_URL,
-          delegate: 'GPU',
-        },
+      const baseOptions = { modelAssetPath: MODEL_URL, delegate: 'GPU' };
+      const landmarkerConfig = {
+        baseOptions,
         runningMode: 'VIDEO',
         numHands: 2,
         minHandDetectionConfidence: 0.55,
         minHandPresenceConfidence: 0.55,
         minTrackingConfidence: 0.5,
-      });
+      };
+
+      // Try GPU delegate first; fall back cleanly to CPU on restricted mobile GPUs
+      try {
+        this.handLandmarker = await HandLandmarker.createFromOptions(filesetResolver, landmarkerConfig);
+      } catch (gpuErr) {
+        console.warn('GPU delegate unavailable, falling back to CPU:', gpuErr);
+        this.handLandmarker = await HandLandmarker.createFromOptions(filesetResolver, {
+          ...landmarkerConfig,
+          baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
+        });
+      }
     }
 
     if (!this.stream) {
@@ -103,6 +114,7 @@ export class HandVisionTracker {
         video: {
           width: { ideal: 640 },
           height: { ideal: 480 },
+          frameRate: { ideal: 30, max: 30 },
           facingMode: 'user',
         },
         audio: false,
@@ -170,11 +182,15 @@ export class HandVisionTracker {
       return this.hands;
     }
 
-    // Only run MediaPipe when a new video frame arrives (saves CPU/GPU)
-    if (this.videoEl.currentTime === this.lastVideoTime) {
+    // Cap inference rate to ~30 FPS and skip duplicate video frames
+    if (
+      this.videoEl.currentTime === this.lastVideoTime ||
+      nowMs - this.lastDetectPerfMs < this.MIN_DETECT_INTERVAL_MS
+    ) {
       return this.hands;
     }
     this.lastVideoTime = this.videoEl.currentTime;
+    this.lastDetectPerfMs = nowMs;
 
     const result = this.handLandmarker.detectForVideo(this.videoEl, nowMs);
     const detected = [];

@@ -12,7 +12,7 @@
 import { ThaiAudioEngine } from './audio.js';
 import { HandVisionTracker } from './vision.js';
 import { RhythmGameEngine } from './gameEngine.js';
-import { DIFFICULTY_CONFIG, getBeatmap, thai7TetFreq } from './beatmaps.js';
+import { DIFFICULTY_CONFIG, TAPHON_ZONES, KHLUI_NOTES, getBeatmap, thai7TetFreq } from './beatmaps.js';
 
 const STORAGE_KEY = 'siam_rhythm_personal_bests_v1';
 const LATENCY_STORAGE_KEY = 'siam_rhythm_latency_offsets_v2';
@@ -69,7 +69,8 @@ const I18N = {
     closeBtn: 'ปิด',
     privacyNotice: '<strong>ความเป็นส่วนตัวของกล้อง:</strong> ภาพจากเว็บแคมประมวลผลในเครื่อง 100% ไม่มีการบันทึกหรือส่งวิดีโอออกนอกเครื่อง (โหลดโมเดล AI จาก CDN ครั้งแรกแล้วแคชไว้เล่นออฟไลน์ในเบราว์เซอร์)',
     startCameraBtn: 'เริ่มเล่นและเปิดกล้อง',
-    keyboardModeBtn: '⌨️ เล่นด้วยคีย์บอร์ด',
+    keyboardModeBtn: '⌨️ เล่นด้วยสัมผัส / คีย์บอร์ด',
+    touchPadAria: 'แผงปุ่มสัมผัสเล่นดนตรี',
     hudScore: 'คะแนน',
     hudCombo: 'คอมโบ',
     hudAccuracy: 'ความแม่นยำ',
@@ -82,7 +83,7 @@ const I18N = {
     loadingCamera: 'กำลังขออนุญาตเปิดกล้องเว็บแคม (640x480)...',
     calibEyebrow: 'ตรวจสอบความพร้อมของมือ',
     calibTitleTwo: 'ยกมือทั้งสองข้างให้อยู่ในกรอบกล้อง',
-    calibTitleOne: 'ยกมืออย่างน้อย 1 ข้างให้อยู่ในกรอบกล้อง (สำหรับขลุ่ย)',
+    calibTitleOne: 'ยกมืออย่างน้อย 1 ข้างให้อยู่ในกรอบกล้อง',
     calibHint: 'ค้างไว้ 3 วินาทีเพื่อเริ่มเพลงอัตโนมัติ',
     handLeft: 'มือที่ 1',
     handRight: 'มือที่ 2',
@@ -167,7 +168,8 @@ const I18N = {
     closeBtn: 'Close',
     privacyNotice: '<strong>Camera Privacy:</strong> Webcam video is processed 100% locally and never recorded or uploaded. The AI model is fetched once from CDN and cached offline in your browser.',
     startCameraBtn: 'Start & Enable Camera',
-    keyboardModeBtn: '⌨️ Play with Keyboard',
+    keyboardModeBtn: '⌨️ Play with Touch / Keyboard',
+    touchPadAria: 'On-screen musical touch pad',
     hudScore: 'Score',
     hudCombo: 'Combo',
     hudAccuracy: 'Accuracy',
@@ -180,7 +182,7 @@ const I18N = {
     loadingCamera: 'Requesting webcam access (640x480)...',
     calibEyebrow: 'HAND READINESS CHECK',
     calibTitleTwo: 'Raise Both Hands Into Camera View',
-    calibTitleOne: 'Raise At Least 1 Hand Into Camera View (Khlui)',
+    calibTitleOne: 'Raise At Least 1 Hand Into Camera View',
     calibHint: 'Hold steady for 3 seconds to begin automatically',
     handLeft: 'Hand 1',
     handRight: 'Hand 2',
@@ -313,6 +315,7 @@ const el = {
   hudProgressTrack: document.getElementById('hud-progress-track'),
   hudProgressFill: document.getElementById('hud-progress-fill'),
   gestureHintBar: document.getElementById('gesture-hint-bar'),
+  touchPadBar: document.getElementById('touch-pad-bar'),
 
   overlayLoading: document.getElementById('overlay-loading'),
   loadingDetail: document.getElementById('loading-detail'),
@@ -483,6 +486,11 @@ const gameEngine = new RhythmGameEngine({
   callbacks: {
     onStateChange(newState) {
       el.overlayCalibration.classList.toggle('hidden', newState !== 'calibrating');
+      if (newState === 'playing' || newState === 'calibrating') {
+        acquireWakeLock();
+      } else {
+        releaseWakeLock();
+      }
       if (newState === 'paused') {
         openModalDialog(el.overlayPause, el.btnPauseGame);
       } else if (!el.overlayPause.classList.contains('hidden')) {
@@ -753,6 +761,7 @@ function applyTranslations() {
   updateLatencyUI(appState.latencyOffsets[appState.latencyProfile], appState.latencyProfile);
   renderDifficultyCards();
   updateGestureHint();
+  renderTouchPad();
 }
 
 function renderDifficultyCards() {
@@ -815,6 +824,102 @@ function updateGestureHint() {
 }
 
 // ============================================================================
+// Mobile Wake Lock & On-Screen Multi-Touch Pad (Synced to Exact Instrument Keys)
+// ============================================================================
+let wakeLockSentinel = null;
+
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator) || wakeLockSentinel) return;
+  try {
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', () => {
+      wakeLockSentinel = null;
+    });
+  } catch {
+    // Non-fatal if battery saver or browser blocks Wake Lock
+  }
+}
+
+async function releaseWakeLock() {
+  if (!wakeLockSentinel) return;
+  try {
+    await wakeLockSentinel.release();
+  } catch {
+    // Ignore already released sentinel
+  }
+  wakeLockSentinel = null;
+}
+
+/**
+ * Renders tactile on-screen touch pads matching the exact keys of the selected
+ * instrument and level (Ranat 5/7, Ching 2, Taphon 4, Khlui 5).
+ */
+function renderTouchPad() {
+  if (!el.touchPadBar) return;
+  const shouldShow = !appState.useCamera && el.screenGame.classList.contains('active');
+  el.touchPadBar.classList.toggle('hidden', !shouldShow);
+  if (!shouldShow) return;
+
+  const inst = appState.instrument;
+  const diffCfg = DIFFICULTY_CONFIG[appState.level];
+  let pads = [];
+
+  if (inst === 'ranat') {
+    pads = diffCfg.ranatKeys.map((k) => ({
+      key: k.keyHint.toLowerCase(),
+      main: k.th,
+      sub: `${k.en} [${k.keyHint}]`,
+      color: k.color,
+    }));
+  } else if (inst === 'ching') {
+    pads = [
+      { key: 'c', main: appState.lang === 'th' ? 'ฉิ่ง' : 'CHING', sub: appState.lang === 'th' ? 'เปิด [C]' : 'Open [C]', color: '#dfb258' },
+      { key: 'v', main: appState.lang === 'th' ? 'ฉับ' : 'CHAB', sub: appState.lang === 'th' ? 'ปิด [V]' : 'Damp [V]', color: '#e87458' },
+    ];
+  } else if (inst === 'taphon') {
+    pads = TAPHON_ZONES.map((z) => ({
+      key: z.keyHint.toLowerCase(),
+      main: z.th,
+      sub: `${z.en.split(' ')[0]} [${z.keyHint}]`,
+      color: z.color,
+    }));
+  } else if (inst === 'khlui') {
+    pads = KHLUI_NOTES.map((n) => ({
+      key: n.keyHint.toLowerCase(),
+      main: n.th,
+      sub: `${n.fingers} • ${n.en}`,
+      color: n.color,
+    }));
+  }
+
+  el.touchPadBar.innerHTML = '';
+  for (const pad of pads) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'touch-pad-btn';
+    btn.style.setProperty('--pad-color', pad.color);
+    btn.innerHTML = `<span class="pad-main">${pad.main}</span><span class="pad-sub">${pad.sub}</span>`;
+
+    // Multi-touch friendly pointerdown (supports two-finger chords on Level 3)
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      btn.classList.add('pressed');
+      if (typeof navigator.vibrate === 'function') {
+        navigator.vibrate(12);
+      }
+      gameEngine.handleKeyInput(pad.key);
+    });
+
+    const releaseVisual = () => btn.classList.remove('pressed');
+    btn.addEventListener('pointerup', releaseVisual);
+    btn.addEventListener('pointercancel', releaseVisual);
+    btn.addEventListener('pointerleave', releaseVisual);
+
+    el.touchPadBar.appendChild(btn);
+  }
+}
+
+// ============================================================================
 // Start, Restart, Exit & Summary Flows
 // ============================================================================
 async function launchGame({ useCamera }) {
@@ -831,6 +936,7 @@ async function launchGame({ useCamera }) {
   updateGestureHint();
 
   showScreen('game');
+  renderTouchPad();
   gameEngine.resize();
 
   if (useCamera) {
@@ -882,6 +988,8 @@ function showSummaryScreen(result) {
   el.summaryMiss.textContent = String(result.miss);
 
   el.btnNextLevel.classList.toggle('hidden', appState.level >= 3);
+  releaseWakeLock();
+  el.touchPadBar?.classList.add('hidden');
 
   showScreen('summary');
   renderDifficultyCards();
@@ -890,6 +998,8 @@ function showSummaryScreen(result) {
 function exitToMenu() {
   gameEngine.stop();
   visionTracker.stopCamera();
+  releaseWakeLock();
+  el.touchPadBar?.classList.add('hidden');
   el.overlayLoading.classList.add('hidden');
   el.overlayCalibration.classList.add('hidden');
   if (!el.overlayPause.classList.contains('hidden')) {
@@ -1078,6 +1188,32 @@ window.addEventListener('keydown', (e) => {
     gameEngine.handleKeyInput(key);
   }
 });
+
+// Auto-pause on app switch / phone call / screen lock & manage Wake Lock
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (gameEngine.state === 'playing') {
+      gameEngine.pause();
+    }
+    releaseWakeLock();
+  } else if (gameEngine.state === 'playing' || gameEngine.state === 'calibrating') {
+    acquireWakeLock();
+  }
+});
+
+window.addEventListener('pagehide', () => {
+  if (gameEngine.state === 'playing') gameEngine.pause();
+  releaseWakeLock();
+});
+
+// iOS Safari requirement: unlock/resume AudioContext on very first touch/tap
+const unlockAudioOnFirstGesture = () => {
+  audioEngine.init().catch(() => {});
+  window.removeEventListener('pointerdown', unlockAudioOnFirstGesture);
+  window.removeEventListener('touchstart', unlockAudioOnFirstGesture);
+};
+window.addEventListener('pointerdown', unlockAudioOnFirstGesture, { passive: true });
+window.addEventListener('touchstart', unlockAudioOnFirstGesture, { passive: true });
 
 // Register PWA Service Worker (http/https only)
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.protocol === 'http:')) {
