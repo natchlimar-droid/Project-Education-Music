@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Siam Rhythm — เกมดนตรีไทยจับจังหวะด้วยมือ</title>
+  <meta name="description" content="Interactive Thai Traditional Music Rhythm Game powered by client-side webcam hand tracking and Web Audio API." />
+
+  <!-- Thai & Latin Modern Fonts (UDL legible, high readability across ages) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <!-- Subtle cultural geometric background glow -->
+  <div class="bg-ambient" aria-hidden="true"></div>
+
+  <!-- Top Navigation Bar -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-emblem" aria-hidden="true">
+        <svg viewBox="0 0 36 36" width="32" height="32" fill="none">
+          <path d="M18 3L23 13L33 18L23 23L18 33L13 23L3 18L13 13L18 3Z" stroke="currentColor" stroke-width="2" fill="rgba(216,168,78,0.18)"/>
+          <circle cx="18" cy="18" r="4" fill="currentColor"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-title" data-i18n="appTitle">สยามจังหวะ</span>
+        <span class="brand-sub" data-i18n="appSubtitle">Thai Traditional Music Rhythm</span>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <button id="btn-sound-test" class="btn-ghost" type="button" data-i18n="testSoundBtn" aria-label="Test instrument sound">
+        🔊 ทดสอบเสียง
+      </button>
+      <div class="lang-toggle" role="group" aria-label="Language switcher">
+        <button id="lang-th" class="lang-btn active" type="button" data-lang="th">ไทย</button>
+        <button id="lang-en" class="lang-btn" type="button" data-lang="en">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <!-- =========================================================
+         1. LANDING & SETUP SCREEN
+    ========================================================== -->
+    <section id="screen-setup" class="screen active" aria-labelledby="setup-heading">
+      <div class="setup-container">
+        <div class="hero-block">
+          <p class="eyebrow" data-i18n="heroEyebrow">UNIVERSAL DESIGN FOR LEARNING • ALL AGES</p>
+          <h1 id="setup-heading" class="hero-title" data-i18n="heroTitle">
+            สัมผัสจังหวะดนตรีไทยด้วยสองมือของคุณ
+          </h1>
+          <p class="hero-desc" data-i18n="heroDesc">
+            ฝึกจังหวะและการประสานสัมพันธ์ของมือผ่านกล้องเว็บแคมแบบเรียลไทม์ ไม่ต้องติดตั้งโปรแกรม เล่นได้ทุกวัย
+          </p>
+        </div>
+
+        <!-- Step 1: Instrument Selector -->
+        <div class="panel">
+          <h2 class="panel-title">
+            <span class="step-badge">1</span>
+            <span data-i18n="selectInstrument">เลือกเครื่องดนตรี</span>
+          </h2>
+          <div class="card-grid two-col" role="radiogroup" aria-label="Instrument selection">
+            <button type="button" class="select-card active" data-instrument="ranat" aria-checked="true" role="radio">
+              <div class="card-icon" aria-hidden="true">🎹</div>
+              <div class="card-body">
+                <h3 data-i18n="ranatTitle">ระนาดเอก (Ranat Ek)</h3>
+                <p data-i18n="ranatDesc">ฝึกทำนองและการประสานมือ ตีลูกระนาดเสมือนตามโน้ตที่ตกลงมา</p>
+                <span class="tag" data-i18n="ranatTag">ทำนอง &amp; ประสานสัมพันธ์</span>
+              </div>
+            </button>
+
+            <button type="button" class="select-card" data-instrument="ching" aria-checked="false" role="radio">
+              <div class="card-icon" aria-hidden="true">🥁</div>
+              <div class="card-body">
+                <h3 data-i18n="chingTitle">ฉิ่ง (Ching)</h3>
+                <p data-i18n="chingDesc">ฝึกจังหวะและสมาธิ ประกบฝ่ามือแล้วเปิดออก (ฉิ่ง) หรือประกบค้างสั้นๆ (ฉับ)</p>
+                <span class="tag" data-i18n="chingTag">จังหวะ &amp; ความแม่นยำ</span>
+              </div>
+            </button>
+          </div>
+
+          <!-- UDL Tracking Point Option (Visible for Ranat Ek) -->
+          <div id="ranat-options" class="sub-option-bar">
+            <span class="sub-option-label" data-i18n="trackingPointLabel">จุดตรวจจับมือ (ระนาดเอก):</span>
+            <div class="segmented-control" role="radiogroup" aria-label="Hand tracking landmark">
+              <button type="button" class="seg-btn active" data-landmark="8" data-i18n="landmarkFinger">ปลายนิ้วชี้ (แม่นยำ)</button>
+              <button type="button" class="seg-btn" data-landmark="9" data-i18n="landmarkPalm">กลางฝ่ามือ (สบายมือ)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Difficulty Selector -->
+        <div class="panel">
+          <h2 class="panel-title">
+            <span class="step-badge">2</span>
+            <span data-i18n="selectDifficulty">เลือกระดับความยาก</span>
+          </h2>
+          <div class="card-grid three-col" id="difficulty-grid" role="radiogroup" aria-label="Difficulty selection">
+            <!-- Dynamically populated/updated by main.js to show song + personal best -->
+          </div>
+        </div>
+
+        <!-- Privacy Notice + Primary CTA -->
+        <div class="cta-area">
+          <div class="privacy-banner" role="note">
+            <span class="privacy-icon" aria-hidden="true">🔒</span>
+            <p data-i18n="privacyNotice">
+              <strong>ความเป็นส่วนตัว 100%:</strong> ภาพจากกล้องประมวลผลภายในเครื่องของคุณเท่านั้น ไม่มีการบันทึกหรืออัปโหลดวิดีโอใดๆ
+            </p>
+          </div>
+
+          <div class="cta-buttons">
+            <button id="btn-start-camera" class="btn-primary btn-lg" type="button">
+              <span class="btn-icon" aria-hidden="true">📷</span>
+              <span data-i18n="startCameraBtn">เริ่มเล่นและเปิดกล้อง</span>
+            </button>
+            <button id="btn-start-keyboard" class="btn-secondary" type="button" data-i18n="keyboardModeBtn">
+              ⌨️ โหมดทดสอบคีย์บอร์ด (ไม่ใช้กล้อง)
+            </button>
+          </div>
+          <p id="setup-error" class="error-text hidden" role="alert"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         2. GAMEPLAY & CALIBRATION SCREEN
+    ========================================================== -->
+    <section id="screen-game" class="screen" aria-label="Gameplay area">
+      <!-- Top Gameplay HUD -->
+      <div class="hud-bar">
+        <div class="hud-left">
+          <button id="btn-exit-game" class="btn-icon-only" type="button" title="Back to Menu" aria-label="Back to Menu">
+            ←
+          </button>
+          <div class="hud-song-meta">
+            <span id="hud-song-title" class="hud-song-title">—</span>
+            <span id="hud-level-badge" class="hud-level-badge">Level 1</span>
+          </div>
+        </div>
+
+        <div class="hud-stats">
+          <div class="stat-box">
+            <span class="stat-label" data-i18n="hudScore">คะแนน</span>
+            <span id="hud-score" class="stat-value">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label" data-i18n="hudCombo">คอมโบ</span>
+            <div class="combo-wrap">
+              <span id="hud-combo" class="stat-value">0</span>
+              <span id="hud-multiplier" class="multiplier-badge hidden">x2</span>
+            </div>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label" data-i18n="hudAccuracy">ความแม่นยำ</span>
+            <span id="hud-accuracy" class="stat-value">100%</span>
+          </div>
+        </div>
+
+        <div class="hud-right">
+          <button id="btn-pause-game" class="btn-ghost btn-sm" type="button" data-i18n="pauseBtn">พัก</button>
+          <button id="btn-restart-game" class="btn-ghost btn-sm" type="button" data-i18n="restartBtn">เริ่มใหม่</button>
+        </div>
+      </div>
+
+      <!-- Song Progress Bar -->
+      <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="hud-progress-fill" class="progress-fill"></div>
+      </div>
+
+      <!-- Main Responsive Stage -->
+      <div class="stage-wrapper">
+        <!-- Hidden video source at 640x480 for MediaPipe -->
+        <video id="webcam-video" playsinline muted autoplay class="hidden-video"></video>
+        <!-- Main mirrored gameplay canvas -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- Loading AI Model Overlay -->
+        <div id="overlay-loading" class="stage-overlay hidden" role="status" aria-live="polite">
+          <div class="overlay-card">
+            <div class="spinner" aria-hidden="true"></div>
+            <h3 data-i18n="loadingTitle">กำลังเตรียมระบบตรวจจับมือ...</h3>
+            <p id="loading-detail" data-i18n="loadingDesc">กำลังโหลด MediaPipe HandLandmarker และเปิดกล้องเว็บแคม</p>
+          </div>
+        </div>
+
+        <!-- 3-Second Hand Calibration Overlay -->
+        <div id="overlay-calibration" class="stage-overlay hidden" role="status" aria-live="polite">
+          <div class="overlay-card calibration-card">
+            <p class="eyebrow" data-i18n="calibEyebrow">เตรียมพร้อมก่อนเริ่มเพลง</p>
+            <h3 id="calib-title" data-i18n="calibTitle">ยกมือทั้งสองข้างให้อยู่ในกรอบกล้อง</h3>
+            <p id="calib-hint" class="calib-hint" data-i18n="calibHint">ค้างไว้ 3 วินาทีเพื่อเริ่มเพลงอัตโนมัติ</p>
+
+            <div class="hand-status-row">
+              <div id="status-hand-1" class="hand-pill">
+                <span class="dot"></span>
+                <span data-i18n="handLeft">มือที่ 1</span>
+              </div>
+              <div id="status-hand-2" class="hand-pill">
+                <span class="dot"></span>
+                <span data-i18n="handRight">มือที่ 2</span>
+              </div>
+            </div>
+
+            <div class="calib-countdown-ring">
+              <svg viewBox="0 0 100 100" width="96" height="96">
+                <circle cx="50" cy="50" r="42" class="ring-bg"></circle>
+                <circle id="calib-ring-progress" cx="50" cy="50" r="42" class="ring-fg"></circle>
+              </svg>
+              <span id="calib-seconds" class="calib-seconds">3</span>
+            </div>
+
+            <button id="btn-skip-calib" class="btn-ghost btn-sm" type="button" data-i18n="skipCalibBtn">
+              ข้ามการตรวจสอบและเริ่มทันที
+            </button>
+          </div>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div id="overlay-pause" class="stage-overlay hidden" role="dialog" aria-modal="true">
+          <div class="overlay-card">
+            <h3 data-i18n="pausedTitle">หยุดพักชั่วคราว</h3>
+            <div class="overlay-actions">
+              <button id="btn-resume-game" class="btn-primary" type="button" data-i18n="resumeBtn">เล่นต่อ</button>
+              <button id="btn-pause-restart" class="btn-secondary" type="button" data-i18n="restartBtn">เริ่มใหม่</button>
+              <button id="btn-pause-menu" class="btn-ghost" type="button" data-i18n="backMenuBtn">กลับหน้าหลัก</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Compact Gesture / Keyboard Hint Pill -->
+        <div id="gesture-hint-bar" class="gesture-hint-bar"></div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         3. SUMMARY & PROGRESSION SCREEN
+    ========================================================== -->
+    <section id="screen-summary" class="screen" aria-labelledby="summary-heading">
+      <div class="summary-card">
+        <div class="summary-header">
+          <p id="summary-song-name" class="eyebrow">—</p>
+          <h2 id="summary-heading" data-i18n="summaryTitle">สรุปผลการเล่น</h2>
+          <div id="summary-new-best" class="new-best-badge hidden" data-i18n="newBestBadge">
+            ★ สถิติสูงสุดใหม่!
+          </div>
+        </div>
+
+        <div class="grade-showcase">
+          <div id="summary-grade" class="grade-medal grade-S">S</div>
+          <p id="summary-feedback" class="grade-feedback">—</p>
+        </div>
+
+        <div class="summary-stats-grid">
+          <div class="summary-stat">
+            <span class="label" data-i18n="finalScore">คะแนนรวม</span>
+            <strong id="summary-score" class="value">0</strong>
+          </div>
+          <div class="summary-stat">
+            <span class="label" data-i18n="maxCombo">คอมโบสูงสุด</span>
+            <strong id="summary-combo" class="value">0</strong>
+          </div>
+          <div class="summary-stat">
+            <span class="label" data-i18n="accuracyLabel">ความแม่นยำ</span>
+            <strong id="summary-accuracy" class="value">0%</strong>
+          </div>
+          <div class="summary-stat">
+            <span class="label" data-i18n="personalBestLabel">สถิติสูงสุดเดิม</span>
+            <strong id="summary-best" class="value">0</strong>
+          </div>
+        </div>
+
+        <div class="judgement-breakdown">
+          <span class="j-pill j-perfect"><strong id="summary-perfect">0</strong> <span data-i18n="judgePerfect">ยอดเยี่ยม</span></span>
+          <span class="j-pill j-good"><strong id="summary-good">0</strong> <span data-i18n="judgeGood">ดี</span></span>
+          <span class="j-pill j-miss"><strong id="summary-miss">0</strong> <span data-i18n="judgeMiss">พลาด</span></span>
+        </div>
+
+        <div class="summary-actions">
+          <button id="btn-play-again" class="btn-primary" type="button" data-i18n="playAgainBtn">เล่นอีกครั้ง</button>
+          <button id="btn-next-level" class="btn-secondary" type="button" data-i18n="nextLevelBtn">ระดับถัดไป</button>
+          <button id="btn-summary-menu" class="btn-ghost" type="button" data-i18n="backMenuBtn">กลับหน้าหลัก</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Detect file:// protocol where browsers block ES6 modules & webcam -->
+  <script>
+    if (window.location.protocol === 'file:') {
+      window.addEventListener('DOMContentLoaded', function () {
+        var err = document.getElementById('setup-error');
+        if (err) {
+          err.innerHTML =
+            '⚠️ <strong>ไม่สามารถเปิดไฟล์ index.html โดยตรง (file://) ได้:</strong> เบราว์เซอร์จะบล็อก JavaScript Module และกล้องเว็บแคม<br>' +
+            'กรุณาเปิดผ่าน <strong>VS Code Live Server</strong> หรือรันคำสั่ง <code>python -m http.server 8000</code> แล้วเข้า <strong>http://localhost:8000</strong>';
+          err.classList.remove('hidden');
+        }
+      });
+    }
+  </script>
+
+  <!-- Main ES6 Module Entry -->
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
+
